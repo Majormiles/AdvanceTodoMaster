@@ -22,7 +22,6 @@ import {
   Alert,
   AlertIcon,
   Icon,
-  Divider,
   Text,
   Card,
   CardBody,

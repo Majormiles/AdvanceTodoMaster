@@ -25,7 +25,7 @@ interface AuthContextProps {
   googleSignIn: () => Promise<any>;
   facebookSignIn: () => Promise<any>;
   resetPassword: (email: string) => Promise<void>;
-  updateUserProfile: (displayName: string, photoURL?: string) => Promise<void>;
+  updateUserProfile: (displayName: string) => Promise<void>;
   verifyEmail: () => Promise<void>;
   error: string | null;
 }
@@ -162,26 +162,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
   
   // Update user profile
-  async function updateUserProfile(displayName: string, photoURL?: string) {
+  async function updateUserProfile(displayName: string) {
+    if (!currentUser) return;
+    
     try {
-      setError(null);
-      if (!currentUser) throw new Error('No user logged in');
-      
       await updateProfile(currentUser, {
-        displayName,
-        photoURL: currentUser.photoURL
+        displayName: displayName
       });
       
-      // Update user document in Firestore
-      await setDoc(doc(db, 'users', currentUser.uid), {
-        displayName,
-        photoURL: currentUser.photoURL
-      }, { merge: true });
-      
-      return;
-    } catch (err: any) {
-      setError(err.message);
-      throw err;
+      // Update the user state to reflect changes
+      setCurrentUser({
+        ...currentUser,
+        displayName: displayName
+      });
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      throw error;
     }
   }
   
