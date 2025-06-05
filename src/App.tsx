@@ -12,6 +12,8 @@ import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 import NotFound from './components/NotFound';
 import PrivateRoute from './components/PrivateRoute';
+import Profile from './components/auth/Profile';
+import Settings from './components/auth/Settings';
 
 function App() {
   return (
@@ -49,15 +51,24 @@ const AppContent = () => {
             <Route path="/register" element={currentUser ? <Navigate to="/tasks" /> : <Register />} />
             <Route path="/" element={<Navigate to={currentUser ? "/tasks" : "/login"} />} />
             
-            {/* Dashboard will be implemented later */}
-            
+            {/* Protected Routes */}
             <Route path="/tasks" element={
               <PrivateRoute>
                 <TaskList />
               </PrivateRoute>
             } />
             
-            {/* Profile will be implemented later */}
+            <Route path="/profile" element={
+              <PrivateRoute>
+                <Profile />
+              </PrivateRoute>
+            } />
+
+            <Route path="/settings" element={
+              <PrivateRoute>
+                <Settings />
+              </PrivateRoute>
+            } />
             
             <Route path="*" element={<NotFound />} />
           </Routes>

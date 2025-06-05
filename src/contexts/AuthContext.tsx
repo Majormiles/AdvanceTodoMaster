@@ -169,13 +169,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       await updateProfile(currentUser, {
         displayName,
-        photoURL: photoURL || currentUser.photoURL
+        photoURL: currentUser.photoURL
       });
       
       // Update user document in Firestore
       await setDoc(doc(db, 'users', currentUser.uid), {
         displayName,
-        photoURL: photoURL || currentUser.photoURL || ''
+        photoURL: currentUser.photoURL
       }, { merge: true });
       
       return;

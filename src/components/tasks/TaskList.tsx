@@ -6,6 +6,7 @@ import {
   Box,
   Flex,
   HStack,
+  VStack,
   Select,
   Input,
   InputGroup,
@@ -16,9 +17,34 @@ import {
   Alert,
   AlertIcon,
   Spinner,
-  Center
+  Center,
+  Card,
+  CardBody,
+  CardHeader,
+  Grid,
+  GridItem,
+  Icon,
+  Stat,
+  StatLabel,
+  StatNumber,
+  StatGroup,
+  Divider,
+  ButtonGroup,
+  Tooltip,
+  IconButton,
 } from '@chakra-ui/react';
-import { FaPlus, FaSearch } from 'react-icons/fa';
+import { 
+  FaPlus, 
+  FaSearch, 
+  FaTasks, 
+  FaFilter, 
+  FaChartBar, 
+  FaCalendar,
+  FaExclamationTriangle,
+  FaCheckCircle,
+  FaClock,
+  FaTimes
+} from 'react-icons/fa';
 import TaskItem from './TaskItem';
 import TaskForm from './TaskForm';
 import CategorySelector from './CategorySelector';
@@ -38,6 +64,7 @@ const TaskList: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
   
   // Filter states
   const [filter, setFilter] = useState<TaskFilter>({
@@ -180,6 +207,22 @@ const TaskList: React.FC = () => {
   const handleFilterChange = (key: keyof TaskFilter, value: any) => {
     setFilter({ ...filter, [key]: value });
   };
+
+  const clearFilters = () => {
+    setFilter({
+      status: [],
+      priority: [],
+      categories: [],
+      search: '',
+    });
+  };
+
+  const hasActiveFilters = () => {
+    return filter.search || 
+           (filter.status && filter.status.length > 0) || 
+           (filter.priority && filter.priority.length > 0) || 
+           (filter.categories && filter.categories.length > 0);
+  };
   
   // Apply filters to tasks
   const filteredTasks = tasks.filter(task => {
@@ -214,11 +257,22 @@ const TaskList: React.FC = () => {
     
     return true;
   });
+
+  // Calculate task statistics
+  const taskStats = {
+    total: tasks.length,
+    todo: tasks.filter(t => t.status === 'TODO').length,
+    inProgress: tasks.filter(t => t.status === 'IN_PROGRESS').length,
+    completed: tasks.filter(t => t.status === 'COMPLETED').length,
+    urgent: tasks.filter(t => t.priority === 'URGENT').length,
+  };
+
+  const completionRate = taskStats.total > 0 ? Math.round((taskStats.completed / taskStats.total) * 100) : 0;
   
   if (!currentUser) {
     return (
-      <Box p={4}>
-        <Alert status="warning">
+      <Box p={8} display="flex" justifyContent="center">
+        <Alert status="warning" maxW="md">
           <AlertIcon />
           Please log in to view and manage your tasks.
         </Alert>
@@ -228,134 +282,264 @@ const TaskList: React.FC = () => {
   
   if (isLoading) {
     return (
-      <Center h="200px">
-        <Spinner size="xl" />
+      <Center h="400px">
+        <VStack spacing={4}>
+          <Spinner size="xl" color="blue.500" />
+          <Text color="gray.600">Loading your tasks...</Text>
+        </VStack>
       </Center>
     );
   }
   
   return (
-    <Box p={4}>
-      <Flex justifyContent="space-between" alignItems="center" mb={4}>
-        <Heading size="lg">My Tasks</Heading>
-        <Button
-          leftIcon={<FaPlus />}
-          colorScheme="blue"
-          onClick={handleOpenNewTaskModal}
-        >
-          Add Task
-        </Button>
-      </Flex>
-      
-      {error && (
-        <Alert status="error" mb={4}>
-          <AlertIcon />
-          {error}
-        </Alert>
-      )}
-      
-      {/* Filters */}
-      <Box mb={6} p={4} borderWidth="1px" borderRadius="lg">
-        <Flex 
-          direction={{ base: 'column', md: 'row' }} 
-          gap={4}
-          alignItems={{ base: 'stretch', md: 'center' }}
-        >
-          <InputGroup>
-            <InputLeftElement pointerEvents="none">
-              <FaSearch color="gray.300" />
-            </InputLeftElement>
-            <Input 
-              placeholder="Search tasks" 
-              value={filter.search || ''} 
-              onChange={(e) => handleFilterChange('search', e.target.value)}
-            />
-          </InputGroup>
-          
-          <HStack spacing={2} flexWrap="wrap">
-            <Select 
-              placeholder="Filter by status" 
-              size="md"
-              minW="150px"
-              onChange={(e) => {
-                const value = e.target.value ? [e.target.value as TaskStatus] : [];
-                handleFilterChange('status', value);
-              }}
-            >
-              <option value="TODO">To Do</option>
-              <option value="IN_PROGRESS">In Progress</option>
-              <option value="COMPLETED">Completed</option>
-              <option value="CANCELLED">Cancelled</option>
-            </Select>
-            
-            <Select 
-              placeholder="Filter by priority" 
-              size="md"
-              minW="150px"
-              onChange={(e) => {
-                const value = e.target.value ? [e.target.value as TaskPriority] : [];
-                handleFilterChange('priority', value);
-              }}
-            >
-              <option value="LOW">Low</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="HIGH">High</option>
-              <option value="URGENT">Urgent</option>
-            </Select>
-            
-            <CategorySelector 
-              categories={categories}
-              onSelect={(categoryId) => {
-                const value = categoryId ? [categoryId] : [];
-                handleFilterChange('categories', value);
-              }}
-            />
-          </HStack>
-        </Flex>
-      </Box>
-      
-      {/* Task count */}
-      <Flex justifyContent="space-between" alignItems="center" mb={4}>
-        <Text>Showing {filteredTasks.length} of {tasks.length} tasks</Text>
-        <HStack spacing={2}>
-          <Badge colorScheme="gray" px={2} py={1}>
-            To Do: {tasks.filter(t => t.status === 'TODO').length}
-          </Badge>
-          <Badge colorScheme="blue" px={2} py={1}>
-            In Progress: {tasks.filter(t => t.status === 'IN_PROGRESS').length}
-          </Badge>
-          <Badge colorScheme="green" px={2} py={1}>
-            Completed: {tasks.filter(t => t.status === 'COMPLETED').length}
-          </Badge>
-        </HStack>
-      </Flex>
-      
-      {/* Task list */}
-      {filteredTasks.length === 0 ? (
-        <Box textAlign="center" py={10}>
-          <Heading size="md" mb={2}>No tasks found</Heading>
-          <Text>
-            {tasks.length === 0 
-              ? 'Get started by adding your first task' 
-              : 'Try changing your filters'}
-          </Text>
+    <Box maxW="7xl" mx="auto" p={{ base: 4, md: 6 }}>
+      <VStack spacing={8} align="stretch">
+        {/* Header */}
+        <Box>
+          <Flex justify="space-between" align="center" mb={4} flexDirection={{ base: "column", md: "row" }} gap={4}>
+            <Box textAlign={{ base: "center", md: "left" }}>
+              <Heading size={{ base: "lg", md: "xl" }} mb={2}>Task Management</Heading>
+              <Text color="gray.600">Organize and track your tasks efficiently</Text>
+            </Box>
+            <ButtonGroup spacing={3} flexDirection={{ base: "column", sm: "row" }} width={{ base: "full", md: "auto" }}>
+              <Tooltip label="Toggle Filters">
+                <IconButton
+                  aria-label="Toggle filters"
+                  icon={<Icon as={FaFilter} />}
+                  variant={showFilters ? "solid" : "outline"}
+                  colorScheme="gray"
+                  onClick={() => setShowFilters(!showFilters)}
+                  width={{ base: "full", sm: "auto" }}
+                />
+              </Tooltip>
+              <Button
+                leftIcon={<Icon as={FaPlus} />}
+                colorScheme="blue"
+                onClick={handleOpenNewTaskModal}
+                size={{ base: "md", md: "lg" }}
+                width={{ base: "full", sm: "auto" }}
+              >
+                Add Task
+              </Button>
+            </ButtonGroup>
+          </Flex>
+
+          {error && (
+            <Alert status="error" mb={6}>
+              <AlertIcon />
+              {error}
+            </Alert>
+          )}
         </Box>
-      ) : (
-        <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-          {filteredTasks.map(task => (
-            <TaskItem
-              key={task.id}
-              task={task}
-              categories={categories}
-              onEdit={openEditTaskModal}
-              onDelete={handleDeleteTask}
-              onStatusChange={handleStatusChange}
-              onShare={handleShareTask}
-            />
-          ))}
-        </SimpleGrid>
-      )}
-      
+
+        {/* Statistics Dashboard - Responsive Grid */}
+        <Grid templateColumns={{ base: "repeat(2, 1fr)", lg: "repeat(4, 1fr)" }} gap={{ base: 3, md: 6 }}>
+          <Card size={{ base: "sm", md: "md" }}>
+            <CardBody textAlign="center" py={{ base: 3, md: 6 }}>
+              <Icon as={FaTasks} boxSize={{ base: 6, md: 8 }} color="blue.500" mb={{ base: 2, md: 3 }} />
+              <Stat>
+                <StatNumber fontSize={{ base: "lg", md: "2xl" }}>{taskStats.total}</StatNumber>
+                <StatLabel fontSize={{ base: "xs", md: "sm" }}>Total Tasks</StatLabel>
+              </Stat>
+            </CardBody>
+          </Card>
+
+          <Card size={{ base: "sm", md: "md" }}>
+            <CardBody textAlign="center" py={{ base: 3, md: 6 }}>
+              <Icon as={FaClock} boxSize={{ base: 6, md: 8 }} color="orange.500" mb={{ base: 2, md: 3 }} />
+              <Stat>
+                <StatNumber fontSize={{ base: "lg", md: "2xl" }}>{taskStats.inProgress}</StatNumber>
+                <StatLabel fontSize={{ base: "xs", md: "sm" }}>In Progress</StatLabel>
+              </Stat>
+            </CardBody>
+          </Card>
+
+          <Card size={{ base: "sm", md: "md" }}>
+            <CardBody textAlign="center" py={{ base: 3, md: 6 }}>
+              <Icon as={FaCheckCircle} boxSize={{ base: 6, md: 8 }} color="green.500" mb={{ base: 2, md: 3 }} />
+              <Stat>
+                <StatNumber fontSize={{ base: "lg", md: "2xl" }}>{completionRate}%</StatNumber>
+                <StatLabel fontSize={{ base: "xs", md: "sm" }}>Completion Rate</StatLabel>
+              </Stat>
+            </CardBody>
+          </Card>
+
+          <Card size={{ base: "sm", md: "md" }}>
+            <CardBody textAlign="center" py={{ base: 3, md: 6 }}>
+              <Icon as={FaExclamationTriangle} boxSize={{ base: 6, md: 8 }} color="red.500" mb={{ base: 2, md: 3 }} />
+              <Stat>
+                <StatNumber fontSize={{ base: "lg", md: "2xl" }}>{taskStats.urgent}</StatNumber>
+                <StatLabel fontSize={{ base: "xs", md: "sm" }}>Urgent Tasks</StatLabel>
+              </Stat>
+            </CardBody>
+          </Card>
+        </Grid>
+
+        {/* Filters */}
+        {showFilters && (
+          <Card>
+            <CardHeader>
+              <Flex justify="space-between" align="center" flexDirection={{ base: "column", sm: "row" }} gap={3}>
+                <HStack spacing={3}>
+                  <Icon as={FaFilter} color="gray.600" />
+                  <Heading size="md">Filters</Heading>
+                  {hasActiveFilters() && (
+                    <Badge colorScheme="blue" variant="subtle">Active</Badge>
+                  )}
+                </HStack>
+                {hasActiveFilters() && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    leftIcon={<Icon as={FaTimes} />}
+                    onClick={clearFilters}
+                  >
+                    Clear All
+                  </Button>
+                )}
+              </Flex>
+            </CardHeader>
+            <CardBody>
+              <Grid templateColumns={{ base: "1fr", md: "2fr 1fr 1fr 1fr" }} gap={4} alignItems="end">
+                <GridItem>
+                  <Text fontSize="sm" fontWeight="medium" mb={2}>Search Tasks</Text>
+                  <InputGroup>
+                    <InputLeftElement pointerEvents="none">
+                      <Icon as={FaSearch} color="gray.400" />
+                    </InputLeftElement>
+                    <Input 
+                      placeholder="Search by title, description, or tags" 
+                      value={filter.search || ''} 
+                      onChange={(e) => handleFilterChange('search', e.target.value)}
+                    />
+                  </InputGroup>
+                </GridItem>
+                
+                <GridItem>
+                  <Text fontSize="sm" fontWeight="medium" mb={2}>Status</Text>
+                  <Select 
+                    placeholder="All Statuses"
+                    onChange={(e) => {
+                      const value = e.target.value ? [e.target.value as TaskStatus] : [];
+                      handleFilterChange('status', value);
+                    }}
+                  >
+                    <option value="TODO">To Do</option>
+                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="CANCELLED">Cancelled</option>
+                  </Select>
+                </GridItem>
+                
+                <GridItem>
+                  <Text fontSize="sm" fontWeight="medium" mb={2}>Priority</Text>
+                  <Select 
+                    placeholder="All Priorities"
+                    onChange={(e) => {
+                      const value = e.target.value ? [e.target.value as TaskPriority] : [];
+                      handleFilterChange('priority', value);
+                    }}
+                  >
+                    <option value="LOW">Low</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="HIGH">High</option>
+                    <option value="URGENT">Urgent</option>
+                  </Select>
+                </GridItem>
+                
+                <GridItem>
+                  <Text fontSize="sm" fontWeight="medium" mb={2}>Category</Text>
+                  <CategorySelector 
+                    categories={categories}
+                    onSelect={(categoryId) => {
+                      const value = categoryId ? [categoryId] : [];
+                      handleFilterChange('categories', value);
+                    }}
+                  />
+                </GridItem>
+              </Grid>
+            </CardBody>
+          </Card>
+        )}
+
+        {/* Task Summary */}
+        <Card bg="gray.50">
+          <CardBody>
+            <Flex justify="space-between" align="center" flexWrap="wrap" gap={4} flexDirection={{ base: "column", md: "row" }}>
+              <Box textAlign={{ base: "center", md: "left" }}>
+                <Text fontWeight="semibold" mb={1}>
+                  Showing {filteredTasks.length} of {tasks.length} tasks
+                </Text>
+                {hasActiveFilters() && (
+                  <Text fontSize="sm" color="gray.600">
+                    Filters are active
+                  </Text>
+                )}
+              </Box>
+              
+              <HStack spacing={3} flexWrap="wrap" justify={{ base: "center", md: "flex-end" }}>
+                <Badge colorScheme="gray" px={3} py={1} borderRadius="full" fontSize={{ base: "xs", md: "sm" }}>
+                  <HStack spacing={1}>
+                    <Icon as={FaCalendar} boxSize={3} />
+                    <Text>To Do: {taskStats.todo}</Text>
+                  </HStack>
+                </Badge>
+                <Badge colorScheme="blue" px={3} py={1} borderRadius="full" fontSize={{ base: "xs", md: "sm" }}>
+                  <HStack spacing={1}>
+                    <Icon as={FaClock} boxSize={3} />
+                    <Text>In Progress: {taskStats.inProgress}</Text>
+                  </HStack>
+                </Badge>
+                <Badge colorScheme="green" px={3} py={1} borderRadius="full" fontSize={{ base: "xs", md: "sm" }}>
+                  <HStack spacing={1}>
+                    <Icon as={FaCheckCircle} boxSize={3} />
+                    <Text>Completed: {taskStats.completed}</Text>
+                  </HStack>
+                </Badge>
+              </HStack>
+            </Flex>
+          </CardBody>
+        </Card>
+
+        {/* Task Grid */}
+        {filteredTasks.length === 0 ? (
+          <Card>
+            <CardBody textAlign="center" py={12}>
+              <Icon as={FaTasks} boxSize={16} color="gray.300" mb={4} />
+              <Heading size="md" mb={2} color="gray.600">No tasks found</Heading>
+              <Text color="gray.500" mb={6}>
+                {tasks.length === 0 
+                  ? 'Get started by creating your first task' 
+                  : 'Try adjusting your filters to see more tasks'}
+              </Text>
+              {tasks.length === 0 && (
+                <Button
+                  leftIcon={<Icon as={FaPlus} />}
+                  colorScheme="blue"
+                  onClick={handleOpenNewTaskModal}
+                >
+                  Create Your First Task
+                </Button>
+              )}
+            </CardBody>
+          </Card>
+        ) : (
+          <SimpleGrid columns={{ base: 1, lg: 2, xl: 3 }} spacing={6}>
+            {filteredTasks.map(task => (
+              <TaskItem
+                key={task.id}
+                task={task}
+                categories={categories}
+                onEdit={openEditTaskModal}
+                onDelete={handleDeleteTask}
+                onStatusChange={handleStatusChange}
+                onShare={handleShareTask}
+              />
+            ))}
+          </SimpleGrid>
+        )}
+      </VStack>
+
       {/* Task Form Modal */}
       <TaskForm
         isOpen={isTaskFormOpen}
@@ -369,4 +553,4 @@ const TaskList: React.FC = () => {
   );
 };
 
-export default TaskList; 
+export default TaskList;

@@ -197,29 +197,35 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             
             {/* Task Details */}
             <VStack align="stretch" spacing={3}>
-              <HStack>
-                <Box as={FaCalendarAlt} color={isOverdue ? 'red.500' : 'blue.500'} />
-                <Text fontWeight="semibold">Due Date:</Text>
-                <Text color={isOverdue ? 'red.500' : 'inherit'}>
-                  {formattedDueDate} 
-                  {isOverdue && ' (Overdue)'}
-                </Text>
-              </HStack>
+              <Box>
+                <HStack>
+                  <Box as={FaCalendarAlt} color={isOverdue ? 'red.500' : 'blue.500'} />
+                  <Text fontWeight="semibold">Due Date:</Text>
+                  <Text color={isOverdue ? 'red.500' : 'inherit'}>
+                    {formattedDueDate} 
+                    {isOverdue && ' (Overdue)'}
+                  </Text>
+                </HStack>
+              </Box>
               
-              <HStack>
-                <Box as={FaCalendarAlt} color="green.500" />
-                <Text fontWeight="semibold">Created:</Text>
-                <Text>{formattedCreatedAt}</Text>
-              </HStack>
+              <Box>
+                <HStack>
+                  <Box as={FaCalendarAlt} color="green.500" />
+                  <Text fontWeight="semibold">Created:</Text>
+                  <Text>{formattedCreatedAt}</Text>
+                </HStack>
+              </Box>
               
               {category && (
-                <HStack>
-                  <Box as={FaTag} color="purple.500" />
-                  <Text fontWeight="semibold">Category:</Text>
-                  <Tag colorScheme="purple">
-                    {category.name}
-                  </Tag>
-                </HStack>
+                <Box>
+                  <HStack>
+                    <Box as={FaTag} color="purple.500" />
+                    <Text fontWeight="semibold">Category:</Text>
+                    <Tag colorScheme="purple">
+                      {category.name}
+                    </Tag>
+                  </HStack>
+                </Box>
               )}
               
               {/* Tags */}
@@ -240,13 +246,13 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             <Divider />
             
             {/* Comments */}
-            <VStack align="stretch" spacing={3}>
-              <Text fontWeight="semibold" fontSize="lg">
+            <VStack align="stretch" spacing={4}>
+              <Box>
                 <HStack>
-                  <FaComments />
-                  <Text>Comments</Text>
+                  <Box as={FaComments} />
+                  <Text fontWeight="semibold" fontSize="lg">Comments</Text>
                 </HStack>
-              </Text>
+              </Box>
               
               <VStack align="stretch" spacing={2}>
                 {/* This would be populated with actual comments from Firestore */}
