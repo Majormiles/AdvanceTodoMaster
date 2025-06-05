@@ -25,7 +25,7 @@ import CategorySelector from './CategorySelector';
 import { Task, TaskStatus, TaskPriority, Category, TaskFilter } from '../../types/task';
 import { useAuth } from '../../contexts/AuthContext';
 import { getUserTasks, createTask, deleteTask } from '../../services/taskService';
-import { getUserCategories, subscribeToCategories } from '../../services/categoryService';
+import { subscribeToCategories } from '../../services/categoryService';
 import { shareTaskWithUser } from '../../services/taskService';
 import { Timestamp } from 'firebase/firestore';
 
