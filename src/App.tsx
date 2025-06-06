@@ -6,6 +6,7 @@ import { Provider } from './components/ui/provider';
 
 // Components
 import Header from './components/layout/Header';
+import Footer from './components/layout/Footer';
 // Components to be implemented
 import TaskList from './components/tasks/TaskList';
 import Login from './components/auth/Login';
@@ -36,9 +37,9 @@ const AppContent = () => {
   };
 
   return (
-    <Box minH="100vh">
+    <Box minH="100vh" display="flex" flexDirection="column">
       <Header toggleSidebar={toggleSidebar} />
-      <Flex>
+      <Flex flex="1">
         {/* Sidebar will be implemented later */}
         <Box
           flex="1"
@@ -74,6 +75,7 @@ const AppContent = () => {
           </Routes>
         </Box>
       </Flex>
+      <Footer />
     </Box>
   );
 };
