@@ -8,6 +8,7 @@ import {
   Button,
   Avatar,
   useColorModeValue,
+  useColorMode,
   Menu,
   MenuButton,
   MenuList,
@@ -17,7 +18,9 @@ import {
   FaBars, 
   FaUser, 
   FaSignOutAlt, 
-  FaCog
+  FaCog,
+  FaMoon,
+  FaSun
 } from 'react-icons/fa';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -29,7 +32,7 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
-  // const { colorMode, toggleColorMode } = useColorMode();
+  const { colorMode, toggleColorMode } = useColorMode();
   
   const bgColor = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
@@ -52,11 +55,18 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
       bg={bgColor}
       borderBottom="1px"
       borderColor={borderColor}
-      px={4}
-      py={2}
       boxShadow="sm"
+      width="100%"
     >
-      <Flex align="center">
+      <Flex 
+        maxW="1200px"
+        mx="auto"
+        px={4}
+        py={2}
+        align="center"
+        justify="space-between"
+        width="100%"
+      >
         {currentUser && (
           <IconButton
             aria-label="Menu"
@@ -73,14 +83,14 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
         
         <Spacer />
         
-        {/* <IconButton
+        <IconButton
           aria-label={colorMode === 'light' ? 'Dark Mode' : 'Light Mode'}
           icon={colorMode === 'light' ? <FaMoon /> : <FaSun />}
           variant="ghost"
           onClick={toggleColorMode}
           mr={2}
         />
-         */}
+        
         {currentUser ? (
           <Menu>
             <MenuButton 

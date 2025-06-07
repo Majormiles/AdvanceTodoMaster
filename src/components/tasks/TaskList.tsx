@@ -30,6 +30,11 @@ import {
   ButtonGroup,
   Tooltip,
   IconButton,
+  Tabs,
+  TabList,
+  TabPanels,
+  TabPanel,
+  Tab,
 } from '@chakra-ui/react';
 import { 
   FaPlus, 
@@ -42,6 +47,14 @@ import {
   FaClock,
   FaTimes
 } from 'react-icons/fa';
+import { 
+  Chart as ChartJS, 
+  ArcElement, 
+  Tooltip as ChartTooltip, 
+  Legend,
+  Colors
+} from 'chart.js';
+import { Pie } from 'react-chartjs-2';
 import TaskItem from './TaskItem';
 import TaskForm from './TaskForm';
 import CategorySelector from './CategorySelector';
@@ -51,6 +64,140 @@ import { getUserTasks, createTask, deleteTask } from '../../services/taskService
 import { subscribeToCategories } from '../../services/categoryService';
 import { shareTaskWithUser } from '../../services/taskService';
 import { Timestamp } from 'firebase/firestore';
+
+ChartJS.register(ArcElement, ChartTooltip, Legend, Colors);
+
+interface ChartData {
+  labels: string[];
+  datasets: {
+    data: number[];
+    backgroundColor: string[];
+    borderColor: string[];
+    borderWidth: number;
+  }[];
+}
+
+const TaskChart: React.FC<{ tasks: Task[], categories: Category[] }> = ({ tasks, categories }) => {
+  const [chartType, setChartType] = useState<'status' | 'priority' | 'category'>('status');
+
+  const getChartData = (): ChartData => {
+    switch (chartType) {
+      case 'status': {
+        const statusCounts = tasks.reduce((acc, task) => {
+          acc[task.status] = (acc[task.status] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+
+        return {
+          labels: Object.keys(statusCounts),
+          datasets: [{
+            data: Object.values(statusCounts),
+            backgroundColor: [
+              'rgba(54, 162, 235, 0.6)',  // TODO
+              'rgba(75, 192, 192, 0.6)',  // IN_PROGRESS
+              'rgba(255, 99, 132, 0.6)',  // COMPLETED
+            ],
+            borderColor: [
+              'rgba(54, 162, 235, 1)',
+              'rgba(75, 192, 192, 1)',
+              'rgba(255, 99, 132, 1)',
+            ],
+            borderWidth: 1,
+          }],
+        };
+      }
+      case 'priority': {
+        const priorityCounts = tasks.reduce((acc, task) => {
+          acc[task.priority] = (acc[task.priority] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+
+        return {
+          labels: Object.keys(priorityCounts),
+          datasets: [{
+            data: Object.values(priorityCounts),
+            backgroundColor: [
+              'rgba(255, 99, 132, 0.6)',  // HIGH
+              'rgba(255, 159, 64, 0.6)',  // MEDIUM
+              'rgba(75, 192, 192, 0.6)',  // LOW
+            ],
+            borderColor: [
+              'rgba(255, 99, 132, 1)',
+              'rgba(255, 159, 64, 1)',
+              'rgba(75, 192, 192, 1)',
+            ],
+            borderWidth: 1,
+          }],
+        };
+      }
+      case 'category': {
+        const categoryCounts = tasks.reduce((acc, task) => {
+          const category = categories.find(c => c.id === task.categoryId)?.name || 'Uncategorized';
+          acc[category] = (acc[category] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+
+        return {
+          labels: Object.keys(categoryCounts),
+          datasets: [{
+            data: Object.values(categoryCounts),
+            backgroundColor: Array(Object.keys(categoryCounts).length)
+              .fill('')
+              .map((_, i) => `hsla(${(i * 360) / Object.keys(categoryCounts).length}, 70%, 50%, 0.6)`),
+            borderColor: Array(Object.keys(categoryCounts).length)
+              .fill('')
+              .map((_, i) => `hsla(${(i * 360) / Object.keys(categoryCounts).length}, 70%, 50%, 1)`),
+            borderWidth: 1,
+          }],
+        };
+      }
+      default:
+        return {
+          labels: [],
+          datasets: [{
+            data: [],
+            backgroundColor: [],
+            borderColor: [],
+            borderWidth: 1,
+          }],
+        };
+    }
+  };
+
+  return (
+    <Card mb={6}>
+      <CardHeader>
+        <Heading size="md">Task Analytics</Heading>
+      </CardHeader>
+      <CardBody>
+        <Tabs onChange={(index) => setChartType((['status', 'priority', 'category'][index] as 'status' | 'priority' | 'category'))}>
+          <TabList>
+            <Tab>By Status</Tab>
+            <Tab>By Priority</Tab>
+            <Tab>By Category</Tab>
+          </TabList>
+          <TabPanels>
+            <TabPanel>
+              <Box height="300px">
+                <Pie data={getChartData()} options={{ maintainAspectRatio: false }} />
+              </Box>
+            </TabPanel>
+            <TabPanel>
+              <Box height="300px">
+                <Pie data={getChartData()} options={{ maintainAspectRatio: false }} />
+              </Box>
+            </TabPanel>
+            <TabPanel>
+              <Box height="300px">
+                <Pie data={getChartData()} options={{ maintainAspectRatio: false }} />
+              </Box>
+            </TabPanel>
+          </TabPanels>
+        </Tabs>
+      </CardBody>
+    </Card>
+  );
+};
 
 const TaskList: React.FC = () => {
   const { currentUser } = useAuth();
@@ -329,47 +476,53 @@ const TaskList: React.FC = () => {
           )}
         </Box>
 
-        {/* Statistics Dashboard - Responsive Grid */}
-        <Grid templateColumns={{ base: "repeat(2, 1fr)", lg: "repeat(4, 1fr)" }} gap={{ base: 3, md: 6 }}>
-          <Card size={{ base: "sm", md: "md" }}>
-            <CardBody textAlign="center" py={{ base: 3, md: 6 }}>
-              <Icon as={FaTasks} boxSize={{ base: 6, md: 8 }} color="blue.500" mb={{ base: 2, md: 3 }} />
-              <Stat>
-                <StatNumber fontSize={{ base: "lg", md: "2xl" }}>{taskStats.total}</StatNumber>
-                <StatLabel fontSize={{ base: "xs", md: "sm" }}>Total Tasks</StatLabel>
-              </Stat>
-            </CardBody>
-          </Card>
+        {/* Statistics Dashboard and Analytics - Responsive Grid */}
+        <Grid templateColumns={{ base: "1fr", lg: "2fr 1fr" }} gap={6}>
+          {/* Left side - Statistics Cards */}
+          <Grid templateColumns={{ base: "repeat(2, 1fr)", lg: "repeat(2, 1fr)" }} gap={{ base: 3, md: 6 }}>
+            <Card size={{ base: "sm", md: "md" }}>
+              <CardBody textAlign="center" py={{ base: 3, md: 6 }}>
+                <Icon as={FaTasks} boxSize={{ base: 6, md: 8 }} color="blue.500" mb={{ base: 2, md: 3 }} />
+                <Stat>
+                  <StatNumber fontSize={{ base: "lg", md: "2xl" }}>{taskStats.total}</StatNumber>
+                  <StatLabel fontSize={{ base: "xs", md: "sm" }}>Total Tasks</StatLabel>
+                </Stat>
+              </CardBody>
+            </Card>
 
-          <Card size={{ base: "sm", md: "md" }}>
-            <CardBody textAlign="center" py={{ base: 3, md: 6 }}>
-              <Icon as={FaClock} boxSize={{ base: 6, md: 8 }} color="orange.500" mb={{ base: 2, md: 3 }} />
-              <Stat>
-                <StatNumber fontSize={{ base: "lg", md: "2xl" }}>{taskStats.inProgress}</StatNumber>
-                <StatLabel fontSize={{ base: "xs", md: "sm" }}>In Progress</StatLabel>
-              </Stat>
-            </CardBody>
-          </Card>
+            <Card size={{ base: "sm", md: "md" }}>
+              <CardBody textAlign="center" py={{ base: 3, md: 6 }}>
+                <Icon as={FaClock} boxSize={{ base: 6, md: 8 }} color="orange.500" mb={{ base: 2, md: 3 }} />
+                <Stat>
+                  <StatNumber fontSize={{ base: "lg", md: "2xl" }}>{taskStats.inProgress}</StatNumber>
+                  <StatLabel fontSize={{ base: "xs", md: "sm" }}>In Progress</StatLabel>
+                </Stat>
+              </CardBody>
+            </Card>
 
-          <Card size={{ base: "sm", md: "md" }}>
-            <CardBody textAlign="center" py={{ base: 3, md: 6 }}>
-              <Icon as={FaCheckCircle} boxSize={{ base: 6, md: 8 }} color="green.500" mb={{ base: 2, md: 3 }} />
-              <Stat>
-                <StatNumber fontSize={{ base: "lg", md: "2xl" }}>{completionRate}%</StatNumber>
-                <StatLabel fontSize={{ base: "xs", md: "sm" }}>Completion Rate</StatLabel>
-              </Stat>
-            </CardBody>
-          </Card>
+            <Card size={{ base: "sm", md: "md" }}>
+              <CardBody textAlign="center" py={{ base: 3, md: 6 }}>
+                <Icon as={FaCheckCircle} boxSize={{ base: 6, md: 8 }} color="green.500" mb={{ base: 2, md: 3 }} />
+                <Stat>
+                  <StatNumber fontSize={{ base: "lg", md: "2xl" }}>{completionRate}%</StatNumber>
+                  <StatLabel fontSize={{ base: "xs", md: "sm" }}>Completion Rate</StatLabel>
+                </Stat>
+              </CardBody>
+            </Card>
 
-          <Card size={{ base: "sm", md: "md" }}>
-            <CardBody textAlign="center" py={{ base: 3, md: 6 }}>
-              <Icon as={FaExclamationTriangle} boxSize={{ base: 6, md: 8 }} color="red.500" mb={{ base: 2, md: 3 }} />
-              <Stat>
-                <StatNumber fontSize={{ base: "lg", md: "2xl" }}>{taskStats.urgent}</StatNumber>
-                <StatLabel fontSize={{ base: "xs", md: "sm" }}>Urgent Tasks</StatLabel>
-              </Stat>
-            </CardBody>
-          </Card>
+            <Card size={{ base: "sm", md: "md" }}>
+              <CardBody textAlign="center" py={{ base: 3, md: 6 }}>
+                <Icon as={FaExclamationTriangle} boxSize={{ base: 6, md: 8 }} color="red.500" mb={{ base: 2, md: 3 }} />
+                <Stat>
+                  <StatNumber fontSize={{ base: "lg", md: "2xl" }}>{taskStats.urgent}</StatNumber>
+                  <StatLabel fontSize={{ base: "xs", md: "sm" }}>Urgent Tasks</StatLabel>
+                </Stat>
+              </CardBody>
+            </Card>
+          </Grid>
+
+          {/* Right side - Task Analytics */}
+          <TaskChart tasks={tasks} categories={categories} />
         </Grid>
 
         {/* Filters */}
