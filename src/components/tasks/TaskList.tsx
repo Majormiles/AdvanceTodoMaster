@@ -40,6 +40,7 @@ import {
   Tr,
   Th,
   Td,
+  useColorModeValue,
 } from '@chakra-ui/react';
 import { 
   FaPlus, 
@@ -223,6 +224,14 @@ const TaskList: React.FC = () => {
     categories: [],
     search: '',
   });
+  
+  // Color mode values
+  const bgColor = useColorModeValue('white', 'gray.800');
+  const textColor = useColorModeValue('gray.800', 'whiteAlpha.900');
+  const cardBg = useColorModeValue('gray.50', 'gray.700');
+  const borderColor = useColorModeValue('gray.200', 'gray.600');
+  const secondaryTextColor = useColorModeValue('gray.600', 'gray.400');
+  const tableBg = useColorModeValue('white', 'gray.800');
   
   useEffect(() => {
     const loadData = async () => {
@@ -426,14 +435,14 @@ const TaskList: React.FC = () => {
   }
   
   return (
-    <Box maxW="7xl" mx="auto" p={{ base: 4, md: 6 }}>
+    <Box maxW="7xl" mx="auto" p={{ base: 4, md: 6 }} color={textColor}>
       <VStack spacing={8} align="stretch">
         {/* Header */}
         <Box>
           <Flex justify="space-between" align="center" mb={1} flexDirection={{ base: "column", md: "row" }} gap={4}>
             <Box textAlign={{ base: "center", md: "left" }}>
               <Heading size={{ base: "lg", md: "xl" }} mb={2}>Task Management</Heading>
-              <Text color="gray.600">Organize and track your tasks efficiently</Text>
+              <Text color={secondaryTextColor}>Organize and track your tasks efficiently</Text>
             </Box>
             <ButtonGroup 
               spacing={3} 
@@ -470,7 +479,7 @@ const TaskList: React.FC = () => {
         </Box>
 
         {/* Banner Carousel */}
-        <Card overflow="hidden">
+        <Card overflow="hidden" bg={cardBg}>
           <CardBody p={0}>
             <Carousel
               images={[
@@ -489,7 +498,7 @@ const TaskList: React.FC = () => {
         <Grid templateColumns={{ base: "1fr", lg: "2fr 1fr" }} gap={6}>
           {/* Left side - Statistics Cards */}
           <Grid templateColumns={{ base: "repeat(2, 1fr)", lg: "repeat(2, 1fr)" }} gap={{ base: 3, md: 6 }}>
-            <Card size={{ base: "sm", md: "md" }}>
+            <Card size={{ base: "sm", md: "md" }} bg={bgColor}>
               <CardBody textAlign="center" py={{ base: 3, md: 6 }}>
                 <Icon as={FaTasks} boxSize={{ base: 6, md: 8 }} color="blue.500" mb={{ base: 2, md: 3 }} />
                 <Stat>
@@ -499,7 +508,7 @@ const TaskList: React.FC = () => {
               </CardBody>
             </Card>
 
-            <Card size={{ base: "sm", md: "md" }}>
+            <Card size={{ base: "sm", md: "md" }} bg={bgColor}>
               <CardBody textAlign="center" py={{ base: 3, md: 6 }}>
                 <Icon as={FaClock} boxSize={{ base: 6, md: 8 }} color="orange.500" mb={{ base: 2, md: 3 }} />
                 <Stat>
@@ -509,7 +518,7 @@ const TaskList: React.FC = () => {
               </CardBody>
             </Card>
 
-            <Card size={{ base: "sm", md: "md" }}>
+            <Card size={{ base: "sm", md: "md" }} bg={bgColor}>
               <CardBody textAlign="center" py={{ base: 3, md: 6 }}>
                 <Icon as={FaCheckCircle} boxSize={{ base: 6, md: 8 }} color="green.500" mb={{ base: 2, md: 3 }} />
                 <Stat>
@@ -519,7 +528,7 @@ const TaskList: React.FC = () => {
               </CardBody>
             </Card>
 
-            <Card size={{ base: "sm", md: "md" }}>
+            <Card size={{ base: "sm", md: "md" }} bg={bgColor}>
               <CardBody textAlign="center" py={{ base: 3, md: 6 }}>
                 <Icon as={FaExclamationTriangle} boxSize={{ base: 6, md: 8 }} color="red.500" mb={{ base: 2, md: 3 }} />
                 <Stat>
@@ -536,7 +545,7 @@ const TaskList: React.FC = () => {
 
         {/* Filters */}
         {showFilters && (
-          <Card>
+          <Card bg={bgColor}>
             <CardHeader>
               <Flex justify="space-between" align="center" flexDirection={{ base: "column", sm: "row" }} gap={3}>
                 <HStack spacing={3}>
@@ -622,7 +631,7 @@ const TaskList: React.FC = () => {
         )}
 
         {/* Task Summary */}
-        <Card bg="gray.50">
+        <Card bg={cardBg}>
           <CardBody>
             <Flex justify="space-between" align="center" flexWrap="wrap" gap={4} flexDirection={{ base: "column", md: "row" }}>
               <Box textAlign={{ base: "center", md: "left" }}>
@@ -630,7 +639,7 @@ const TaskList: React.FC = () => {
                   Showing {filteredTasks.length} of {tasks.length} tasks
                 </Text>
                 {hasActiveFilters() && (
-                  <Text fontSize="sm" color="gray.600">
+                  <Text fontSize="sm" color={secondaryTextColor}>
                     Filters are active
                   </Text>
                 )}
@@ -662,10 +671,10 @@ const TaskList: React.FC = () => {
 
         {/* Task List */}
         {filteredTasks.length === 0 ? (
-          <Box textAlign="center" py={12} bg="white" rounded="md" shadow="sm">
-            <Icon as={FaTasks} boxSize={16} color="gray.300" mb={4} />
-            <Heading size="md" mb={2} color="gray.600">No tasks found</Heading>
-            <Text color="gray.500" mb={6}>
+          <Box textAlign="center" py={12} bg={bgColor} rounded="md" shadow="sm">
+            <Icon as={FaTasks} boxSize={16} color={secondaryTextColor} mb={4} />
+            <Heading size="md" mb={2} color={secondaryTextColor}>No tasks found</Heading>
+            <Text color={secondaryTextColor} mb={6}>
               {tasks.length === 0 
                 ? 'Get started by creating your first task' 
                 : 'Try adjusting your filters to see more tasks'}
@@ -681,7 +690,7 @@ const TaskList: React.FC = () => {
             )}
           </Box>
         ) : (
-          <Box bg="white" rounded="md" shadow="sm">
+          <Box bg={tableBg} rounded="md" shadow="sm">
             <Table variant="simple">
               <Thead display={{ base: 'none', md: 'table-header-group' }}>
                 <Tr>
@@ -700,7 +709,7 @@ const TaskList: React.FC = () => {
                     p={{ base: 4, md: 0 }}
                     gap={{ base: 3, md: 0 }}
                     borderBottom="1px solid"
-                    borderColor="gray.200"
+                    borderColor={borderColor}
                   >
                     <Td width={{ base: '100%', md: '40px' }} 
                       px={{ base: 0, md: 4 }}
@@ -736,12 +745,12 @@ const TaskList: React.FC = () => {
                       <Text 
                         fontWeight="medium"
                         textDecoration={task.status === 'COMPLETED' ? 'line-through' : 'none'}
-                        color={task.status === 'COMPLETED' ? 'gray.500' : 'inherit'}
+                        color={task.status === 'COMPLETED' ? secondaryTextColor : 'inherit'}
                       >
                         {task.title}
                       </Text>
                       {task.description && (
-                        <Text fontSize="sm" color="gray.600" noOfLines={2}>
+                        <Text fontSize="sm" color={secondaryTextColor} noOfLines={2}>
                           {task.description}
                         </Text>
                       )}
