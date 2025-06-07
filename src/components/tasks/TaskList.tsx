@@ -13,7 +13,6 @@ import {
   InputLeftElement,
   useDisclosure,
   Badge,
-  SimpleGrid,
   Alert,
   AlertIcon,
   Spinner,
@@ -34,6 +33,13 @@ import {
   TabPanels,
   TabPanel,
   Tab,
+  Checkbox,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
 } from '@chakra-ui/react';
 import { 
   FaPlus, 
@@ -44,7 +50,9 @@ import {
   FaExclamationTriangle,
   FaCheckCircle,
   FaClock,
-  FaTimes
+  FaTimes,
+  FaEdit,
+  FaTrash,
 } from 'react-icons/fa';
 import { 
   Chart as ChartJS, 
@@ -54,14 +62,12 @@ import {
   Colors
 } from 'chart.js';
 import { Pie } from 'react-chartjs-2';
-import TaskItem from './TaskItem';
 import TaskForm from './TaskForm';
 import CategorySelector from './CategorySelector';
 import { Task, TaskStatus, TaskPriority, Category, TaskFilter } from '../../types/task';
 import { useAuth } from '../../contexts/AuthContext';
 import { getUserTasks, createTask, deleteTask } from '../../services/taskService';
 import { subscribeToCategories } from '../../services/categoryService';
-import { shareTaskWithUser } from '../../services/taskService';
 import { Timestamp } from 'firebase/firestore';
 import Carousel from '../ui/Carousel';
 
@@ -321,22 +327,6 @@ const TaskList: React.FC = () => {
     }
   };
   
-  const handleShareTask = async (taskId: string, email: string, permission: string) => {
-    if (!currentUser) return;
-    
-    try {
-      await shareTaskWithUser(
-        currentUser.uid,
-        taskId,
-        email,
-        permission as 'view' | 'edit' | 'admin'
-      );
-    } catch (err: any) {
-      console.error('Error sharing task:', err);
-      setError('Failed to share task. Please try again.');
-      throw err;
-    }
-  };
   
   const openEditTaskModal = (task: Task) => {
     setEditingTask(task);
@@ -670,42 +660,146 @@ const TaskList: React.FC = () => {
           </CardBody>
         </Card>
 
-        {/* Task Grid */}
+        {/* Task List */}
         {filteredTasks.length === 0 ? (
-          <Card>
-            <CardBody textAlign="center" py={12}>
-              <Icon as={FaTasks} boxSize={16} color="gray.300" mb={4} />
-              <Heading size="md" mb={2} color="gray.600">No tasks found</Heading>
-              <Text color="gray.500" mb={6}>
-                {tasks.length === 0 
-                  ? 'Get started by creating your first task' 
-                  : 'Try adjusting your filters to see more tasks'}
-              </Text>
-              {tasks.length === 0 && (
-                <Button
-                  leftIcon={<Icon as={FaPlus} />}
-                  colorScheme="blue"
-                  onClick={handleOpenNewTaskModal}
-                >
-                  Create Your First Task
-                </Button>
-              )}
-            </CardBody>
-          </Card>
+          <Box textAlign="center" py={12} bg="white" rounded="md" shadow="sm">
+            <Icon as={FaTasks} boxSize={16} color="gray.300" mb={4} />
+            <Heading size="md" mb={2} color="gray.600">No tasks found</Heading>
+            <Text color="gray.500" mb={6}>
+              {tasks.length === 0 
+                ? 'Get started by creating your first task' 
+                : 'Try adjusting your filters to see more tasks'}
+            </Text>
+            {tasks.length === 0 && (
+              <Button
+                leftIcon={<Icon as={FaPlus} />}
+                colorScheme="blue"
+                onClick={handleOpenNewTaskModal}
+              >
+                Create Your First Task
+              </Button>
+            )}
+          </Box>
         ) : (
-          <SimpleGrid columns={{ base: 1, lg: 2, xl: 3 }} spacing={6}>
-            {filteredTasks.map(task => (
-              <TaskItem
-                key={task.id}
-                task={task}
-                categories={categories}
-                onEdit={openEditTaskModal}
-                onDelete={handleDeleteTask}
-                onStatusChange={handleStatusChange}
-                onShare={handleShareTask}
-              />
-            ))}
-          </SimpleGrid>
+          <Box bg="white" rounded="md" shadow="sm">
+            <Table variant="simple">
+              <Thead display={{ base: 'none', md: 'table-header-group' }}>
+                <Tr>
+                  <Th width="40px" px={4}></Th>
+                  <Th>Task</Th>
+                  <Th width={{ md: '120px' }} display={{ base: 'none', md: 'table-cell' }}>Priority</Th>
+                  <Th width={{ md: '120px' }} display={{ base: 'none', md: 'table-cell' }}>Status</Th>
+                  <Th width={{ md: '150px' }} textAlign="right">Actions</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {filteredTasks.map((task) => (
+                  <Tr key={task.id} 
+                    display={{ base: 'flex', md: 'table-row' }}
+                    flexDirection={{ base: 'column', md: 'inherit' }}
+                    p={{ base: 4, md: 0 }}
+                    gap={{ base: 3, md: 0 }}
+                    borderBottom="1px solid"
+                    borderColor="gray.200"
+                  >
+                    <Td width={{ base: '100%', md: '40px' }} 
+                      px={{ base: 0, md: 4 }}
+                      py={{ base: 0, md: 4 }}
+                      display="flex"
+                      alignItems="center"
+                      border="none"
+                    >
+                      <Checkbox
+                        isChecked={task.status === 'COMPLETED'}
+                        onChange={(e) => handleStatusChange(task.id, e.target.checked ? 'COMPLETED' : 'TODO')}
+                        colorScheme="green"
+                      />
+                      <Box display={{ base: 'flex', md: 'none' }} ml={3}>
+                        <ButtonGroup size="sm" spacing={2}>
+                          <IconButton
+                            aria-label="Edit task"
+                            icon={<Icon as={FaEdit} />}
+                            onClick={() => openEditTaskModal(task)}
+                            variant="ghost"
+                          />
+                          <IconButton
+                            aria-label="Delete task"
+                            icon={<Icon as={FaTrash} />}
+                            onClick={() => handleDeleteTask(task.id)}
+                            colorScheme="red"
+                            variant="ghost"
+                          />
+                        </ButtonGroup>
+                      </Box>
+                    </Td>
+                    <Td border="none" px={{ base: 0, md: 4 }} py={{ base: 0, md: 4 }}>
+                      <Text 
+                        fontWeight="medium"
+                        textDecoration={task.status === 'COMPLETED' ? 'line-through' : 'none'}
+                        color={task.status === 'COMPLETED' ? 'gray.500' : 'inherit'}
+                      >
+                        {task.title}
+                      </Text>
+                      {task.description && (
+                        <Text fontSize="sm" color="gray.600" noOfLines={2}>
+                          {task.description}
+                        </Text>
+                      )}
+                      <HStack spacing={2} mt={2} display={{ base: 'flex', md: 'none' }}>
+                        <Badge colorScheme={
+                          task.priority === 'URGENT' ? 'red' :
+                          task.priority === 'HIGH' ? 'orange' :
+                          task.priority === 'MEDIUM' ? 'yellow' : 'green'
+                        }>
+                          {task.priority}
+                        </Badge>
+                        <Badge colorScheme={
+                          task.status === 'COMPLETED' ? 'green' :
+                          task.status === 'IN_PROGRESS' ? 'blue' : 'gray'
+                        }>
+                          {task.status}
+                        </Badge>
+                      </HStack>
+                    </Td>
+                    <Td display={{ base: 'none', md: 'table-cell' }} border="none">
+                      <Badge colorScheme={
+                        task.priority === 'URGENT' ? 'red' :
+                        task.priority === 'HIGH' ? 'orange' :
+                        task.priority === 'MEDIUM' ? 'yellow' : 'green'
+                      }>
+                        {task.priority}
+                      </Badge>
+                    </Td>
+                    <Td display={{ base: 'none', md: 'table-cell' }} border="none">
+                      <Badge colorScheme={
+                        task.status === 'COMPLETED' ? 'green' :
+                        task.status === 'IN_PROGRESS' ? 'blue' : 'gray'
+                      }>
+                        {task.status}
+                      </Badge>
+                    </Td>
+                    <Td textAlign="right" display={{ base: 'none', md: 'table-cell' }} border="none">
+                      <ButtonGroup size="sm" spacing={2}>
+                        <IconButton
+                          aria-label="Edit task"
+                          icon={<Icon as={FaEdit} />}
+                          onClick={() => openEditTaskModal(task)}
+                          variant="ghost"
+                        />
+                        <IconButton
+                          aria-label="Delete task"
+                          icon={<Icon as={FaTrash} />}
+                          onClick={() => handleDeleteTask(task.id)}
+                          colorScheme="red"
+                          variant="ghost"
+                        />
+                      </ButtonGroup>
+                    </Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </Box>
         )}
       </VStack>
 
