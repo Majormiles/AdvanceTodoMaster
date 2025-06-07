@@ -265,7 +265,7 @@ const Login: React.FC = () => {
               onClick={handleGoogleSignIn}
               isLoading={isSubmitting}
               data-loading-text="Signing in..."
-              leftIcon={<img src="/googleauth.png" alt="Google" style={{ width: '30px', height: '30px' }} />}
+              leftIcon={<img src="/googleauth.png" alt="Google" style={{ width: '20px', height: '20px' }} />}
             >
               Sign in with Google
             </Button>
