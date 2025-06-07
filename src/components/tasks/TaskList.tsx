@@ -28,7 +28,6 @@ import {
   StatLabel,
   StatNumber,
   ButtonGroup,
-  Tooltip,
   IconButton,
   Tabs,
   TabList,
@@ -64,6 +63,7 @@ import { getUserTasks, createTask, deleteTask } from '../../services/taskService
 import { subscribeToCategories } from '../../services/categoryService';
 import { shareTaskWithUser } from '../../services/taskService';
 import { Timestamp } from 'firebase/firestore';
+import Carousel from '../ui/Carousel';
 
 ChartJS.register(ArcElement, ChartTooltip, Legend, Colors);
 
@@ -440,28 +440,31 @@ const TaskList: React.FC = () => {
       <VStack spacing={8} align="stretch">
         {/* Header */}
         <Box>
-          <Flex justify="space-between" align="center" mb={4} flexDirection={{ base: "column", md: "row" }} gap={4}>
+          <Flex justify="space-between" align="center" mb={1} flexDirection={{ base: "column", md: "row" }} gap={4}>
             <Box textAlign={{ base: "center", md: "left" }}>
               <Heading size={{ base: "lg", md: "xl" }} mb={2}>Task Management</Heading>
               <Text color="gray.600">Organize and track your tasks efficiently</Text>
             </Box>
-            <ButtonGroup spacing={3} flexDirection={{ base: "column", sm: "row" }} width={{ base: "full", md: "auto" }}>
-              <Tooltip label="Toggle Filters">
-                <IconButton
-                  aria-label="Toggle filters"
-                  icon={<Icon as={FaFilter} />}
-                  variant={showFilters ? "solid" : "outline"}
-                  colorScheme="gray"
-                  onClick={() => setShowFilters(!showFilters)}
-                  width={{ base: "full", sm: "auto" }}
-                />
-              </Tooltip>
+            <ButtonGroup 
+              spacing={3} 
+              flexDirection={{ base: "column", sm: "row" }} 
+              width={{ base: "100%", md: "auto" }}
+              alignItems="center"
+            >
+              <IconButton
+                aria-label="Toggle filters"
+                icon={<Icon as={FaFilter} />}
+                variant={showFilters ? "solid" : "outline"}
+                colorScheme="gray"
+                onClick={() => setShowFilters(!showFilters)}
+                width={{ base: "100%", sm: "auto" }}
+              />
               <Button
                 leftIcon={<Icon as={FaPlus} />}
                 colorScheme="blue"
                 onClick={handleOpenNewTaskModal}
                 size={{ base: "md", md: "lg" }}
-                width={{ base: "full", sm: "auto" }}
+                width={{ base: "100%", sm: "auto" }}
               >
                 Add Task
               </Button>
@@ -475,6 +478,22 @@ const TaskList: React.FC = () => {
             </Alert>
           )}
         </Box>
+
+        {/* Banner Carousel */}
+        <Card overflow="hidden">
+          <CardBody p={0}>
+            <Carousel
+              images={[
+                "/banner/baner1.jpg",
+                "/banner/banner2.jpg",
+                "/banner/banner3.jpg",
+                "/banner/banner4.jpg",
+                "/banner/banner5.jpg"
+              ]}
+              height="110px"
+            />
+          </CardBody>
+        </Card>
 
         {/* Statistics Dashboard and Analytics - Responsive Grid */}
         <Grid templateColumns={{ base: "1fr", lg: "2fr 1fr" }} gap={6}>
