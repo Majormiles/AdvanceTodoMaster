@@ -72,6 +72,7 @@ import { getUserTasks, createTask, deleteTask } from '../../services/taskService
 import { subscribeToCategories } from '../../services/categoryService';
 import { Timestamp } from 'firebase/firestore';
 import Carousel from '../ui/Carousel';
+import TaskListDrawer from './TaskListDrawer';
 
 ChartJS.register(ArcElement, ChartTooltip, Legend, Colors);
 
@@ -407,6 +408,9 @@ const TaskList: React.FC = () => {
   const secondaryTextColor = useColorModeValue('gray.600', 'gray.400');
   const tableBg = useColorModeValue('white', 'gray.800');
 
+  // New state for TaskListDrawer
+  const [selectedCardType, setSelectedCardType] = useState<'total' | 'inProgress' | 'completed' | 'urgent' | null>(null);
+
   useEffect(() => {
     const loadData = async () => {
       if (!currentUser) {
@@ -672,7 +676,16 @@ const TaskList: React.FC = () => {
         <Grid templateColumns={{ base: "1fr", lg: "2fr 1fr" }} gap={6}>
           {/* Left side - Statistics Cards */}
           <Grid templateColumns={{ base: "repeat(2, 1fr)", lg: "repeat(2, 1fr)" }} gap={{ base: 3, md: 6 }}>
-            <Card size={{ base: "sm", md: "md" }} bg={bgColor}>
+            <Card 
+              size={{ base: "sm", md: "md" }} 
+              bg={bgColor}
+              onClick={() => setSelectedCardType('total')}
+              cursor="pointer"
+              transition="all 0.2s"
+              _hover={{ transform: 'translateY(-2px)', shadow: 'md' }}
+              role="button"
+              aria-label="View all tasks"
+            >
               <CardBody textAlign="center" py={{ base: 3, md: 6 }}>
                 <Icon as={FaTasks} boxSize={{ base: 6, md: 8 }} color="blue.500" mb={{ base: 2, md: 3 }} />
                 <Stat>
@@ -682,7 +695,16 @@ const TaskList: React.FC = () => {
               </CardBody>
             </Card>
 
-            <Card size={{ base: "sm", md: "md" }} bg={bgColor}>
+            <Card 
+              size={{ base: "sm", md: "md" }} 
+              bg={bgColor}
+              onClick={() => setSelectedCardType('inProgress')}
+              cursor="pointer"
+              transition="all 0.2s"
+              _hover={{ transform: 'translateY(-2px)', shadow: 'md' }}
+              role="button"
+              aria-label="View in-progress tasks"
+            >
               <CardBody textAlign="center" py={{ base: 3, md: 6 }}>
                 <Icon as={FaClock} boxSize={{ base: 6, md: 8 }} color="orange.500" mb={{ base: 2, md: 3 }} />
                 <Stat>
@@ -692,7 +714,16 @@ const TaskList: React.FC = () => {
               </CardBody>
             </Card>
 
-            <Card size={{ base: "sm", md: "md" }} bg={bgColor}>
+            <Card 
+              size={{ base: "sm", md: "md" }} 
+              bg={bgColor}
+              onClick={() => setSelectedCardType('completed')}
+              cursor="pointer"
+              transition="all 0.2s"
+              _hover={{ transform: 'translateY(-2px)', shadow: 'md' }}
+              role="button"
+              aria-label="View completed tasks"
+            >
               <CardBody textAlign="center" py={{ base: 3, md: 6 }}>
                 <Icon as={FaCheckCircle} boxSize={{ base: 6, md: 8 }} color="green.500" mb={{ base: 2, md: 3 }} />
                 <Stat>
@@ -702,7 +733,16 @@ const TaskList: React.FC = () => {
               </CardBody>
             </Card>
 
-            <Card size={{ base: "sm", md: "md" }} bg={bgColor}>
+            <Card 
+              size={{ base: "sm", md: "md" }} 
+              bg={bgColor}
+              onClick={() => setSelectedCardType('urgent')}
+              cursor="pointer"
+              transition="all 0.2s"
+              _hover={{ transform: 'translateY(-2px)', shadow: 'md' }}
+              role="button"
+              aria-label="View urgent tasks"
+            >
               <CardBody textAlign="center" py={{ base: 3, md: 6 }}>
                 <Icon as={FaExclamationTriangle} boxSize={{ base: 6, md: 8 }} color="red.500" mb={{ base: 2, md: 3 }} />
                 <Stat>
@@ -994,6 +1034,17 @@ const TaskList: React.FC = () => {
         categories={categories}
         initialData={editingTask || undefined}
         isEditing={!!editingTask}
+      />
+
+      {/* Task List Drawer */}
+      <TaskListDrawer
+        isOpen={selectedCardType !== null}
+        onClose={() => setSelectedCardType(null)}
+        tasks={tasks}
+        filterType={selectedCardType || 'total'}
+        onEditTask={openEditTaskModal}
+        onDeleteTask={handleDeleteTask}
+        onStatusChange={handleStatusChange}
       />
     </Box>
   );
