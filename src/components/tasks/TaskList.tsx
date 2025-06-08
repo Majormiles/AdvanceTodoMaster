@@ -42,11 +42,11 @@ import {
   Td,
   useColorModeValue,
 } from '@chakra-ui/react';
-import { 
-  FaPlus, 
-  FaSearch, 
-  FaTasks, 
-  FaFilter, 
+import {
+  FaPlus,
+  FaSearch,
+  FaTasks,
+  FaFilter,
   FaCalendar,
   FaExclamationTriangle,
   FaCheckCircle,
@@ -55,12 +55,13 @@ import {
   FaEdit,
   FaTrash,
 } from 'react-icons/fa';
-import { 
-  Chart as ChartJS, 
-  ArcElement, 
-  Tooltip as ChartTooltip, 
+import {
+  Chart as ChartJS,
+  ArcElement,
+  Tooltip as ChartTooltip,
   Legend,
-  Colors
+  Colors,
+  TooltipItem
 } from 'chart.js';
 import { Pie } from 'react-chartjs-2';
 import TaskForm from './TaskForm';
@@ -186,17 +187,190 @@ const TaskChart: React.FC<{ tasks: Task[], categories: Category[] }> = ({ tasks,
           <TabPanels>
             <TabPanel>
               <Box height="300px">
-                <Pie data={getChartData()} options={{ maintainAspectRatio: false }} />
+                <Pie
+                  data={getChartData()}
+                  options={{
+                    maintainAspectRatio: false,
+                    responsive: true,
+                    plugins: {
+                      legend: {
+                        position: 'bottom',
+                        labels: {
+                          padding: 20,
+                          usePointStyle: true,
+                          font: {
+                            size: 12
+                          }
+                        }
+                      },
+                      tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        titleColor: '#f8fafc',
+                        bodyColor: '#e2e8f0',
+                        borderColor: 'rgba(148, 163, 184, 0.2)',
+                        borderWidth: 1,
+                        cornerRadius: 12,
+                        displayColors: true,
+                        padding: 12,
+                        titleFont: { size: 14 },
+                        bodyFont: { size: 13 },
+                        callbacks: {
+                          label: function (context: TooltipItem<"pie">) {
+                            const label = context.label || '';
+                            const value = context.raw as number;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((value / total) * 100).toFixed(1);
+                            return `${label}: ${value} (${percentage}%)`;
+                          }
+                        }
+                      }
+                    },
+                    hover: {
+                      mode: 'nearest',
+                      intersect: true,
+                    },
+                    animation: {
+                      animateRotate: true,
+                      animateScale: true,
+                      duration: 1200
+                    },
+                    elements: {
+                      arc: {
+                        borderWidth: 0,
+                        hoverBorderWidth: 0,
+                        spacing: 2,
+                      }
+                    },
+                    interaction: {
+                      intersect: false,
+                      mode: 'point'
+                    }
+                  }}
+                />
               </Box>
             </TabPanel>
             <TabPanel>
               <Box height="300px">
-                <Pie data={getChartData()} options={{ maintainAspectRatio: false }} />
+                <Pie
+                  data={getChartData()}
+                  options={{
+                    maintainAspectRatio: false,
+                    responsive: true,
+                    plugins: {
+                      legend: {
+                        position: 'bottom',
+                        labels: {
+                          padding: 20,
+                          usePointStyle: true,
+                        }
+                      },
+                      tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        borderColor: '#333',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        displayColors: true,
+                        padding: 12,
+                        titleFont: { size: 14 },
+                        bodyFont: { size: 13 },
+                        callbacks: {
+                          label: function (context: TooltipItem<"pie">) {
+                            const label = context.label || '';
+                            const value = context.raw as number;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((value / total) * 100).toFixed(1);
+                            return `${label}: ${value} (${percentage}%)`;
+                          }
+                        }
+                      }
+                    },
+                    hover: {
+                      mode: 'nearest',
+                      intersect: true,
+                    },
+                    animation: {
+                      animateRotate: true,
+                      animateScale: true,
+                      duration: 1000,
+                    },
+                    elements: {
+                      arc: {
+                        borderWidth: 2,
+                        borderColor: '#fff',
+                        hoverBorderWidth: 5,
+                        hoverBorderColor: '#333',
+                      }
+                    },
+                    interaction: {
+                      intersect: false,
+                      mode: 'index'
+                    }
+                  }}
+                />
               </Box>
             </TabPanel>
             <TabPanel>
               <Box height="300px">
-                <Pie data={getChartData()} options={{ maintainAspectRatio: false }} />
+                <Pie
+                  data={getChartData()}
+                  options={{
+                    maintainAspectRatio: false,
+                    responsive: true,
+                    plugins: {
+                      legend: {
+                        position: 'bottom',
+                        labels: {
+                          padding: 20,
+                          usePointStyle: true,
+                        }
+                      },
+                      tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        borderColor: '#333',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        displayColors: true,
+                        padding: 12,
+                        titleFont: { size: 14 },
+                        bodyFont: { size: 13 },
+                        callbacks: {
+                          label: function (context: TooltipItem<"pie">) {
+                            const label = context.label || '';
+                            const value = context.raw as number;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((value / total) * 100).toFixed(1);
+                            return `${label}: ${value} (${percentage}%)`;
+                          }
+                        }
+                      }
+                    },
+                    hover: {
+                      mode: 'nearest',
+                      intersect: true,
+                    },
+                    animation: {
+                      animateRotate: true,
+                      animateScale: true,
+                      duration: 1000,
+                    },
+                    elements: {
+                      arc: {
+                        borderWidth: 2,
+                        borderColor: '#fff',
+                        hoverBorderWidth: 5,
+                        hoverBorderColor: '#333',
+                      }
+                    },
+                    interaction: {
+                      intersect: false,
+                      mode: 'index'
+                    }
+                  }}
+                />
               </Box>
             </TabPanel>
           </TabPanels>
@@ -209,14 +383,14 @@ const TaskChart: React.FC<{ tasks: Task[], categories: Category[] }> = ({ tasks,
 const TaskList: React.FC = () => {
   const { currentUser } = useAuth();
   const { isOpen: isTaskFormOpen, onOpen: onTaskFormOpen, onClose: onTaskFormClose } = useDisclosure();
-  
+
   const [tasks, setTasks] = useState<Task[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [showFilters, setShowFilters] = useState(false);
-  
+
   // Filter states
   const [filter, setFilter] = useState<TaskFilter>({
     status: [],
@@ -224,7 +398,7 @@ const TaskList: React.FC = () => {
     categories: [],
     search: '',
   });
-  
+
   // Color mode values
   const bgColor = useColorModeValue('white', 'gray.800');
   const textColor = useColorModeValue('gray.800', 'whiteAlpha.900');
@@ -232,28 +406,28 @@ const TaskList: React.FC = () => {
   const borderColor = useColorModeValue('gray.200', 'gray.600');
   const secondaryTextColor = useColorModeValue('gray.600', 'gray.400');
   const tableBg = useColorModeValue('white', 'gray.800');
-  
+
   useEffect(() => {
     const loadData = async () => {
       if (!currentUser) {
         setIsLoading(false);
         return;
       }
-      
+
       try {
         setIsLoading(true);
         setError(null);
-        
+
         // Fetch tasks
         const fetchedTasks = await getUserTasks(currentUser.uid);
         setTasks(fetchedTasks);
-        
+
         // Subscribe to real-time category updates
         const unsubscribe = subscribeToCategories(currentUser.uid, (updatedCategories) => {
           setCategories(updatedCategories);
           setIsLoading(false);
         });
-        
+
         // Return cleanup function
         return () => {
           unsubscribe();
@@ -264,13 +438,13 @@ const TaskList: React.FC = () => {
         setIsLoading(false);
       }
     };
-    
+
     loadData();
   }, [currentUser]);
-  
+
   const handleCreateTask = async (taskData: Omit<Task, 'id' | 'createdAt' | 'userId'>) => {
     if (!currentUser) return;
-    
+
     try {
       const newTask = await createTask(currentUser.uid, { ...taskData, userId: currentUser.uid });
       setTasks([newTask, ...tasks]);
@@ -280,10 +454,10 @@ const TaskList: React.FC = () => {
       throw err;
     }
   };
-  
+
   const handleUpdateTask = async (taskData: Omit<Task, 'id' | 'createdAt' | 'userId'>) => {
     if (!currentUser || !editingTask) return;
-    
+
     try {
       const updatedTask = {
         ...taskData,
@@ -302,10 +476,10 @@ const TaskList: React.FC = () => {
       throw err;
     }
   };
-  
+
   const handleDeleteTask = async (taskId: string) => {
     if (!currentUser) return;
-    
+
     try {
       await deleteTask(currentUser.uid, taskId);
       setTasks(tasks.filter(t => t.id !== taskId));
@@ -314,20 +488,20 @@ const TaskList: React.FC = () => {
       setError('Failed to delete task. Please try again.');
     }
   };
-  
+
   const handleStatusChange = async (taskId: string, status: TaskStatus) => {
     if (!currentUser) return;
-    
+
     try {
       const taskToUpdate = tasks.find(t => t.id === taskId);
       if (!taskToUpdate) return;
-      
+
       const updatedTask = {
         ...taskToUpdate,
         status,
         completedAt: status === 'COMPLETED' ? Timestamp.fromDate(new Date()) : undefined
       };
-      
+
       const updatedTasks = tasks.map(t => t.id === taskId ? updatedTask : t);
       setTasks(updatedTasks);
     } catch (err: any) {
@@ -335,18 +509,18 @@ const TaskList: React.FC = () => {
       setError('Failed to update task status. Please try again.');
     }
   };
-  
-  
+
+
   const openEditTaskModal = (task: Task) => {
     setEditingTask(task);
     onTaskFormOpen();
   };
-  
+
   const handleOpenNewTaskModal = () => {
     setEditingTask(null);
     onTaskFormOpen();
   };
-  
+
   const handleFilterChange = (key: keyof TaskFilter, value: any) => {
     setFilter({ ...filter, [key]: value });
   };
@@ -361,43 +535,43 @@ const TaskList: React.FC = () => {
   };
 
   const hasActiveFilters = () => {
-    return filter.search || 
-           (filter.status && filter.status.length > 0) || 
-           (filter.priority && filter.priority.length > 0) || 
-           (filter.categories && filter.categories.length > 0);
+    return filter.search ||
+      (filter.status && filter.status.length > 0) ||
+      (filter.priority && filter.priority.length > 0) ||
+      (filter.categories && filter.categories.length > 0);
   };
-  
+
   // Apply filters to tasks
   const filteredTasks = tasks.filter(task => {
     // Status filter
     if (filter.status && filter.status.length > 0 && !filter.status.includes(task.status)) {
       return false;
     }
-    
+
     // Priority filter
     if (filter.priority && filter.priority.length > 0 && !filter.priority.includes(task.priority)) {
       return false;
     }
-    
+
     // Category filter
     if (filter.categories && filter.categories.length > 0) {
       if (!task.categoryId || !filter.categories.includes(task.categoryId)) {
         return false;
       }
     }
-    
+
     // Search filter
     if (filter.search) {
       const searchLower = filter.search.toLowerCase();
       const titleMatches = task.title.toLowerCase().includes(searchLower);
       const descriptionMatches = task.description?.toLowerCase().includes(searchLower) || false;
       const tagMatches = task.tags?.some(tag => tag.toLowerCase().includes(searchLower)) || false;
-      
+
       if (!titleMatches && !descriptionMatches && !tagMatches) {
         return false;
       }
     }
-    
+
     return true;
   });
 
@@ -411,7 +585,7 @@ const TaskList: React.FC = () => {
   };
 
   const completionRate = taskStats.total > 0 ? Math.round((taskStats.completed / taskStats.total) * 100) : 0;
-  
+
   if (!currentUser) {
     return (
       <Box p={8} display="flex" justifyContent="center">
@@ -422,7 +596,7 @@ const TaskList: React.FC = () => {
       </Box>
     );
   }
-  
+
   if (isLoading) {
     return (
       <Center h="400px">
@@ -433,7 +607,7 @@ const TaskList: React.FC = () => {
       </Center>
     );
   }
-  
+
   return (
     <Box maxW="7xl" mx="auto" p={{ base: 4, md: 6 }} color={textColor}>
       <VStack spacing={8} align="stretch">
@@ -444,9 +618,9 @@ const TaskList: React.FC = () => {
               <Heading size={{ base: "lg", md: "xl" }} mb={2}>Task Management</Heading>
               <Text color={secondaryTextColor}>Organize and track your tasks efficiently</Text>
             </Box>
-            <ButtonGroup 
-              spacing={3} 
-              flexDirection={{ base: "column", sm: "row" }} 
+            <ButtonGroup
+              spacing={3}
+              flexDirection={{ base: "column", sm: "row" }}
               width={{ base: "100%", md: "auto" }}
               alignItems="center"
             >
@@ -575,17 +749,17 @@ const TaskList: React.FC = () => {
                     <InputLeftElement pointerEvents="none">
                       <Icon as={FaSearch} color="gray.400" />
                     </InputLeftElement>
-                    <Input 
-                      placeholder="Search by title, description, or tags" 
-                      value={filter.search || ''} 
+                    <Input
+                      placeholder="Search by title, description, or tags"
+                      value={filter.search || ''}
                       onChange={(e) => handleFilterChange('search', e.target.value)}
                     />
                   </InputGroup>
                 </GridItem>
-                
+
                 <GridItem>
                   <Text fontSize="sm" fontWeight="medium" mb={2}>Status</Text>
-                  <Select 
+                  <Select
                     placeholder="All Statuses"
                     onChange={(e) => {
                       const value = e.target.value ? [e.target.value as TaskStatus] : [];
@@ -598,10 +772,10 @@ const TaskList: React.FC = () => {
                     <option value="CANCELLED">Cancelled</option>
                   </Select>
                 </GridItem>
-                
+
                 <GridItem>
                   <Text fontSize="sm" fontWeight="medium" mb={2}>Priority</Text>
-                  <Select 
+                  <Select
                     placeholder="All Priorities"
                     onChange={(e) => {
                       const value = e.target.value ? [e.target.value as TaskPriority] : [];
@@ -614,10 +788,10 @@ const TaskList: React.FC = () => {
                     <option value="URGENT">Urgent</option>
                   </Select>
                 </GridItem>
-                
+
                 <GridItem>
                   <Text fontSize="sm" fontWeight="medium" mb={2}>Category</Text>
-                  <CategorySelector 
+                  <CategorySelector
                     categories={categories}
                     onSelect={(categoryId) => {
                       const value = categoryId ? [categoryId] : [];
@@ -644,7 +818,7 @@ const TaskList: React.FC = () => {
                   </Text>
                 )}
               </Box>
-              
+
               <HStack spacing={3} flexWrap="wrap" justify={{ base: "center", md: "flex-end" }}>
                 <Badge colorScheme="gray" px={3} py={1} borderRadius="full" fontSize={{ base: "xs", md: "sm" }}>
                   <HStack spacing={1}>
@@ -675,8 +849,8 @@ const TaskList: React.FC = () => {
             <Icon as={FaTasks} boxSize={16} color={secondaryTextColor} mb={4} />
             <Heading size="md" mb={2} color={secondaryTextColor}>No tasks found</Heading>
             <Text color={secondaryTextColor} mb={6}>
-              {tasks.length === 0 
-                ? 'Get started by creating your first task' 
+              {tasks.length === 0
+                ? 'Get started by creating your first task'
                 : 'Try adjusting your filters to see more tasks'}
             </Text>
             {tasks.length === 0 && (
@@ -703,7 +877,7 @@ const TaskList: React.FC = () => {
               </Thead>
               <Tbody>
                 {filteredTasks.map((task) => (
-                  <Tr key={task.id} 
+                  <Tr key={task.id}
                     display={{ base: 'flex', md: 'table-row' }}
                     flexDirection={{ base: 'column', md: 'inherit' }}
                     p={{ base: 4, md: 0 }}
@@ -711,7 +885,7 @@ const TaskList: React.FC = () => {
                     borderBottom="1px solid"
                     borderColor={borderColor}
                   >
-                    <Td width={{ base: '100%', md: '40px' }} 
+                    <Td width={{ base: '100%', md: '40px' }}
                       px={{ base: 0, md: 4 }}
                       py={{ base: 0, md: 4 }}
                       display="flex"
@@ -742,7 +916,7 @@ const TaskList: React.FC = () => {
                       </Box>
                     </Td>
                     <Td border="none" px={{ base: 0, md: 4 }} py={{ base: 0, md: 4 }}>
-                      <Text 
+                      <Text
                         fontWeight="medium"
                         textDecoration={task.status === 'COMPLETED' ? 'line-through' : 'none'}
                         color={task.status === 'COMPLETED' ? secondaryTextColor : 'inherit'}
@@ -757,14 +931,14 @@ const TaskList: React.FC = () => {
                       <HStack spacing={2} mt={2} display={{ base: 'flex', md: 'none' }}>
                         <Badge colorScheme={
                           task.priority === 'URGENT' ? 'red' :
-                          task.priority === 'HIGH' ? 'orange' :
-                          task.priority === 'MEDIUM' ? 'yellow' : 'green'
+                            task.priority === 'HIGH' ? 'orange' :
+                              task.priority === 'MEDIUM' ? 'yellow' : 'green'
                         }>
                           {task.priority}
                         </Badge>
                         <Badge colorScheme={
                           task.status === 'COMPLETED' ? 'green' :
-                          task.status === 'IN_PROGRESS' ? 'blue' : 'gray'
+                            task.status === 'IN_PROGRESS' ? 'blue' : 'gray'
                         }>
                           {task.status}
                         </Badge>
@@ -773,8 +947,8 @@ const TaskList: React.FC = () => {
                     <Td display={{ base: 'none', md: 'table-cell' }} border="none">
                       <Badge colorScheme={
                         task.priority === 'URGENT' ? 'red' :
-                        task.priority === 'HIGH' ? 'orange' :
-                        task.priority === 'MEDIUM' ? 'yellow' : 'green'
+                          task.priority === 'HIGH' ? 'orange' :
+                            task.priority === 'MEDIUM' ? 'yellow' : 'green'
                       }>
                         {task.priority}
                       </Badge>
@@ -782,7 +956,7 @@ const TaskList: React.FC = () => {
                     <Td display={{ base: 'none', md: 'table-cell' }} border="none">
                       <Badge colorScheme={
                         task.status === 'COMPLETED' ? 'green' :
-                        task.status === 'IN_PROGRESS' ? 'blue' : 'gray'
+                          task.status === 'IN_PROGRESS' ? 'blue' : 'gray'
                       }>
                         {task.status}
                       </Badge>
