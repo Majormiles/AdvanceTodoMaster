@@ -16,7 +16,7 @@
   "dependencies": {
     "cors": "^2.8.5",
     "firebase-admin": "^11.11.1",
-    "firebase-functions": "^4.9.0",
+    "firebase-functions": "^6.3.2",
     "nodemailer": "^6.10.1",
     "otpauth": "^9.4.0"
   },

@@ -51,7 +51,7 @@ const Profile: React.FC = () => {
     
     try {
       setIsUpdating(true);
-      await updateUserProfile(displayName);
+      await updateUserProfile({ displayName });
       
       toast({
         title: 'Profile Updated',

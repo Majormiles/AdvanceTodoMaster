@@ -22,11 +22,13 @@ import {
   ModalFooter,
   Link,
   useToast,
-  useDisclosure
+  useDisclosure,
+  HStack,
+  Icon,
+  Divider,
 } from '@chakra-ui/react';
+import { FaEye, FaEyeSlash, FaGoogle, FaFacebook, FaEnvelope } from 'react-icons/fa';
 import { useAuth } from '../../contexts/AuthContext';
-import { get2FASettings } from '../../services/twoFactorService';
-import TwoFactorVerify from './TwoFactorVerify';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -37,15 +39,9 @@ const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resetSuccess, setResetSuccess] = useState(false);
-  const [pendingUserId, setPendingUserId] = useState<string | null>(null);
-  const { login, googleSignIn, resetPassword } = useAuth();
+  const { login, googleSignIn, facebookSignIn, resetPassword } = useAuth();
   const navigate = useNavigate();
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const {
-    isOpen: is2FAOpen,
-    onOpen: on2FAOpen,
-    onClose: on2FAClose
-  } = useDisclosure();
   const toast = useToast();
 
   // Validation states
@@ -78,17 +74,6 @@ const Login: React.FC = () => {
     return isValid;
   };
 
-  const validateResetEmail = () => {
-    if (!resetEmail) {
-      setResetEmailError('Email is required');
-      return false;
-    } else if (!/\S+@\S+\.\S+/.test(resetEmail)) {
-      setResetEmailError('Email address is invalid');
-      return false;
-    }
-    return true;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -98,25 +83,51 @@ const Login: React.FC = () => {
       setError(null);
       setIsSubmitting(true);
       
-      // First, attempt to log in
-      const userCredential = await login(email, password);
+      // Attempt to log in
+      const result = await login(email, password);
       
-      // Check if 2FA is enabled for this user
-      const settings = await get2FASettings(userCredential.user.uid);
-      
-      if (settings.twofa_enabled) {
-        // Store the user ID and show 2FA verification
-        setPendingUserId(userCredential.user.uid);
-        on2FAOpen();
+      if (result.requires2FA) {
+        // User needs 2FA verification - redirect to 2FA page
+        toast({
+          title: 'Verification Required',
+          description: 'Please check your email for a verification code',
+          status: 'info',
+          duration: 5000,
+          isClosable: true,
+        });
+        navigate('/2fa-verify');
       } else {
-        // No 2FA, proceed with login
-        completeLogin();
+        // Login successful without 2FA
+        toast({
+          title: 'Welcome back!',
+          description: 'Successfully logged in.',
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
+        navigate('/dashboard');
       }
     } catch (err: any) {
-      setError(err.message);
+      console.error('Login error:', err);
+      let errorMessage = err.message;
+      
+      // Handle specific Firebase error codes
+      if (err.code === 'auth/invalid-credential') {
+        errorMessage = 'Invalid email or password. Please try again.';
+      } else if (err.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many failed attempts. Please try again later.';
+      } else if (err.code === 'auth/user-disabled') {
+        errorMessage = 'This account has been disabled. Please contact support.';
+      } else if (err.code === 'auth/user-not-found') {
+        errorMessage = 'No account found with this email address.';
+      } else if (err.code === 'auth/wrong-password') {
+        errorMessage = 'Incorrect password. Please try again.';
+      }
+      
+      setError(errorMessage);
       toast({
-        title: 'Error',
-        description: err.message,
+        title: 'Login Failed',
+        description: errorMessage,
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -129,56 +140,129 @@ const Login: React.FC = () => {
   const handleGoogleSignIn = async () => {
     try {
       setError(null);
-      setIsSubmitting(true);
-      
       const result = await googleSignIn();
       
-      // Check if 2FA is enabled for this user
-      const settings = await get2FASettings(result.user.uid);
-      
-      if (settings.twofa_enabled) {
-        // Store the user ID and show 2FA verification
-        setPendingUserId(result.user.uid);
-        on2FAOpen();
+      if (result.requires2FA) {
+        toast({
+          title: 'Verification Required',
+          description: 'Please check your email for a verification code',
+          status: 'info',
+          duration: 5000,
+          isClosable: true,
+        });
+        navigate('/2fa-verify');
       } else {
-        // No 2FA, proceed with login
-        completeLogin();
+        toast({
+          title: 'Welcome back!',
+          description: 'Successfully logged in with Google.',
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
+        navigate('/dashboard');
       }
     } catch (err: any) {
-      setError(err.message);
+      console.error('Google sign-in error:', err);
+      let errorMessage = err.message || 'Failed to sign in with Google. Please try again.';
+      
+      // Use the improved error messages from AuthContext
+      if (err.code === 'auth/popup-closed-by-user') {
+        errorMessage = 'Sign-in was cancelled. Please try again.';
+      } else if (err.code === 'auth/popup-blocked') {
+        errorMessage = 'Popup was blocked. Please allow popups for this site and try again.';
+      } else if (err.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your internet connection and try again.';
+      }
+      
+      setError(errorMessage);
       toast({
-        title: 'Error',
-        description: err.message,
+        title: 'Google Sign-In Failed',
+        description: errorMessage,
         status: 'error',
         duration: 5000,
         isClosable: true,
       });
-    } finally {
-      setIsSubmitting(false);
     }
+  };
+
+  const handleFacebookSignIn = async () => {
+    try {
+      setError(null);
+      await facebookSignIn();
+      
+      toast({
+        title: 'Welcome back!',
+        description: 'Successfully logged in with Facebook.',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+      navigate('/dashboard');
+    } catch (err: any) {
+      console.error('Facebook sign-in error:', err);
+      setError('Failed to sign in with Facebook. Please try again.');
+      toast({
+        title: 'Facebook Sign-In Failed',
+        description: 'Failed to sign in with Facebook. Please try again.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
+
+  const validateResetEmail = () => {
+    setResetEmailError('');
+    
+    if (!resetEmail) {
+      setResetEmailError('Please enter your email address');
+      return false;
+    } else if (!/\S+@\S+\.\S+/.test(resetEmail)) {
+      setResetEmailError('Please enter a valid email address');
+      return false;
+    }
+    
+    return true;
   };
 
   const handleResetPassword = async () => {
     if (!validateResetEmail()) return;
-    
+
     try {
-      setError(null);
       setIsResetting(true);
+      setResetEmailError('');
       
       await resetPassword(resetEmail);
       setResetSuccess(true);
+      
       toast({
-        title: 'Reset link sent',
-        description: 'Please check your email for password reset instructions.',
+        title: 'Reset Email Sent',
+        description: 'Check your email for password reset instructions.',
         status: 'success',
         duration: 5000,
         isClosable: true,
       });
+      
+      // Close modal after successful reset
+      setTimeout(() => {
+        onClose();
+        setResetSuccess(false);
+        setResetEmail('');
+      }, 2000);
     } catch (err: any) {
-      setError(err.message);
+      console.error('Password reset error:', err);
+      let errorMessage = err.message;
+      
+      if (err.code === 'auth/user-not-found') {
+        errorMessage = 'No account found with this email address.';
+      } else if (err.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many reset requests. Please try again later.';
+      }
+      
+      setResetEmailError(errorMessage);
       toast({
-        title: 'Error',
-        description: err.message,
+        title: 'Reset Failed',
+        description: errorMessage,
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -188,204 +272,188 @@ const Login: React.FC = () => {
     }
   };
 
-  const handleResetModalClose = () => {
-    setResetSuccess(false);
+  const handleModalClose = () => {
+    onClose();
     setResetEmail('');
     setResetEmailError('');
-    setError(null);
-    onClose();
-  };
-
-  const completeLogin = () => {
-    navigate('/dashboard');
-    toast({
-      title: 'Welcome back!',
-      description: 'Successfully logged in.',
-      status: 'success',
-      duration: 3000,
-      isClosable: true,
-    });
-  };
-
-  const handle2FASuccess = () => {
-    on2FAClose();
-    completeLogin();
-  };
-
-  const handle2FACancel = () => {
-    on2FAClose();
-    setPendingUserId(null);
+    setResetSuccess(false);
   };
 
   return (
-    <Box 
-      minH="100vh"
-      display="flex"
-      alignItems="center"
-      justifyContent="center"
-      p={4}
-    >
-      <Box 
-        maxW="md" 
-        w="full"
-        p={6} 
-        borderWidth={1} 
-        borderRadius="lg"
-      >
-        <VStack gap={6}>
-          <Heading size="lg">Log In</Heading>
-          
-          {error && (
-            <Alert status="error">
-              <AlertIcon />
-              {error}
-            </Alert>
-          )}
+    <Box maxW="md" mx="auto" p={6} bg="white" borderRadius="lg" boxShadow="md">
+      <VStack spacing={8} align="stretch">
+        <VStack spacing={2}>
+          <Heading size="xl" textAlign="center" color="blue.600">
+            Welcome Back
+          </Heading>
+          <Text color="gray.600" textAlign="center">
+            Sign in to your account to continue
+          </Text>
+        </VStack>
+        
+        {error && (
+          <Alert status="error" borderRadius="md">
+            <AlertIcon />
+            {error}
+          </Alert>
+        )}
+        
+        <form onSubmit={handleSubmit}>
+          <VStack spacing={4}>
+            <FormControl isInvalid={!!emailError}>
+              <FormLabel>Email Address</FormLabel>
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email"
+                size="lg"
+              />
+              {emailError && <FormErrorMessage>{emailError}</FormErrorMessage>}
+            </FormControl>
 
-          <form onSubmit={handleSubmit} style={{ width: '100%' }}>
-            <VStack gap={4} align="flex-start" width="100%">
-              <FormControl isInvalid={!!emailError}>
-                <FormLabel>Email Address</FormLabel>
-                <Input 
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+            <FormControl isInvalid={!!passwordError}>
+              <FormLabel>Password</FormLabel>
+              <InputGroup size="lg">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
                 />
-                {emailError && <FormErrorMessage>{emailError}</FormErrorMessage>}
-              </FormControl>
+                <InputRightElement width="3rem">
+                  <Button
+                    h="1.75rem"
+                    size="sm"
+                    onClick={() => setShowPassword(!showPassword)}
+                    variant="ghost"
+                  >
+                    <Icon as={showPassword ? FaEyeSlash : FaEye} />
+                  </Button>
+                </InputRightElement>
+              </InputGroup>
+              {passwordError && <FormErrorMessage>{passwordError}</FormErrorMessage>}
+            </FormControl>
 
-              <FormControl isInvalid={!!passwordError}>
-                <FormLabel>Password</FormLabel>
-                <InputGroup>
-                  <Input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                  <InputRightElement width="4.5rem">
-                    <Button
-                      h="1.75rem"
-                      size="sm"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? 'Hide' : 'Show'}
-                    </Button>
-                  </InputRightElement>
-                </InputGroup>
-                {passwordError && <FormErrorMessage>{passwordError}</FormErrorMessage>}
-              </FormControl>
-
-              <Link 
-                alignSelf="flex-end" 
-                color="blue.500" 
-                fontSize="sm"
-                onClick={onOpen}
-                cursor="pointer"
-              >
-                Forgot Password?
-              </Link>
-
-              <Button 
-                type="submit" 
-                colorScheme="blue" 
-                width="full"
-                isLoading={isSubmitting}
-                data-loading-text="Logging in..."
-              >
-                Log In
-              </Button>
-            </VStack>
-          </form>
-
-          <VStack width="100%" gap={4}>
-            <Button 
-              width="full" 
-              onClick={handleGoogleSignIn}
+            <Button
+              type="submit"
+              colorScheme="blue"
+              width="full"
+              size="lg"
               isLoading={isSubmitting}
-              data-loading-text="Signing in..."
-              leftIcon={<img src="/googleauth.png" alt="Google" style={{ width: '20px', height: '20px' }} />}
+              loadingText="Signing in..."
             >
-              Sign in with Google
+              Sign In
             </Button>
           </VStack>
+        </form>
 
-          <Text>
-            Don't have an account?{" "}
-            <Link as={RouterLink} to="/register" color="blue.500">
-              Sign up
+        <VStack spacing={3}>
+          <Text fontSize="sm" color="gray.500">
+            Forgot your password?{' '}
+            <Link color="blue.500" onClick={onOpen} cursor="pointer">
+              Reset it here
             </Link>
           </Text>
+        </VStack>
 
-          {/* Password Reset Modal */}
-          <Modal isOpen={isOpen} onClose={handleResetModalClose}>
-            <ModalOverlay />
-            <ModalContent>
-              <ModalHeader>Reset Password</ModalHeader>
-              <ModalBody>
-                {error && (
-                  <Alert status="error">
-                    <AlertIcon />
-                    {error}
-                  </Alert>
-                )}
+        <VStack spacing={3}>
+          <HStack width="full">
+            <Divider />
+            <Text fontSize="sm" color="gray.500" px={3}>
+              Or continue with
+            </Text>
+            <Divider />
+          </HStack>
 
-                {resetSuccess ? (
-                  <Alert status="success">
-                    <AlertIcon />
-                    Password reset instructions have been sent to your email.
-                  </Alert>
-                ) : (
-                  <FormControl isInvalid={!!resetEmailError}>
-                    <FormLabel>Email Address</FormLabel>
-                    <Input 
-                      type="email"
-                      value={resetEmail}
-                      onChange={(e) => setResetEmail(e.target.value)}
-                    />
-                    {resetEmailError && <FormErrorMessage>{resetEmailError}</FormErrorMessage>}
-                  </FormControl>
-                )}
-              </ModalBody>
+          <HStack spacing={3} width="full">
+            <Button
+              variant="outline"
+              width="full"
+              leftIcon={<Icon as={FaGoogle} color="red.500" />}
+              onClick={handleGoogleSignIn}
+              isDisabled={isSubmitting}
+            >
+              Google
+            </Button>
+            <Button
+              variant="outline"
+              width="full"
+              leftIcon={<Icon as={FaFacebook} color="blue.600" />}
+              onClick={handleFacebookSignIn}
+              isDisabled={isSubmitting}
+            >
+              Facebook
+            </Button>
+          </HStack>
+        </VStack>
 
-              <ModalFooter>
-                <Button onClick={handleResetModalClose}>
+        <Text textAlign="center" fontSize="sm" color="gray.600">
+          Don't have an account?{' '}
+          <Link as={RouterLink} to="/register" color="blue.500">
+            Sign up here
+          </Link>
+        </Text>
+      </VStack>
+
+      {/* Password Reset Modal */}
+      <Modal isOpen={isOpen} onClose={handleModalClose} isCentered>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            <HStack>
+              <Icon as={FaEnvelope} color="blue.500" />
+              <Text>Reset Password</Text>
+            </HStack>
+          </ModalHeader>
+          <ModalBody>
+            {resetSuccess ? (
+              <Alert status="success" borderRadius="md">
+                <AlertIcon />
+                <VStack align="start" spacing={1}>
+                  <Text fontWeight="medium">Email Sent Successfully!</Text>
+                  <Text fontSize="sm">
+                    Check your inbox for password reset instructions.
+                  </Text>
+                </VStack>
+              </Alert>
+            ) : (
+              <VStack spacing={4} align="stretch">
+                <Text color="gray.600">
+                  Enter your email address and we'll send you a link to reset your password.
+                </Text>
+                <FormControl isInvalid={!!resetEmailError}>
+                  <FormLabel>Email Address</FormLabel>
+                  <Input
+                    type="email"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    placeholder="Enter your email address"
+                  />
+                  {resetEmailError && <FormErrorMessage>{resetEmailError}</FormErrorMessage>}
+                </FormControl>
+              </VStack>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            {!resetSuccess && (
+              <HStack spacing={3}>
+                <Button variant="ghost" onClick={handleModalClose}>
                   Cancel
                 </Button>
                 <Button
                   colorScheme="blue"
                   onClick={handleResetPassword}
                   isLoading={isResetting}
-                  data-loading-text="Sending..."
-                  disabled={resetSuccess}
+                  loadingText="Sending..."
                 >
-                  {resetSuccess ? 'Done' : 'Reset Password'}
+                  Send Reset Email
                 </Button>
-              </ModalFooter>
-            </ModalContent>
-          </Modal>
-
-          {/* 2FA Verification Modal */}
-          <Modal
-            isOpen={is2FAOpen}
-            onClose={handle2FACancel}
-            closeOnOverlayClick={false}
-            size="md"
-          >
-            <ModalOverlay />
-            <ModalContent>
-              <ModalBody p={0}>
-                {pendingUserId && (
-                  <TwoFactorVerify
-                    userId={pendingUserId}
-                    onSuccess={handle2FASuccess}
-                    onCancel={handle2FACancel}
-                  />
-                )}
-              </ModalBody>
-            </ModalContent>
-          </Modal>
-        </VStack>
-      </Box>
+              </HStack>
+            )}
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Box>
   );
 };

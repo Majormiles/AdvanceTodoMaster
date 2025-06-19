@@ -12,9 +12,9 @@ import {
   ModalOverlay,
   ModalContent,
   ModalHeader,
+  ModalCloseButton,
   ModalBody,
   ModalFooter,
-  ModalCloseButton,
   FormControl,
   FormLabel,
   Input,
@@ -39,11 +39,10 @@ import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, delete
 import { doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../contexts/AuthContext';
-import TwoFactorSetup from './TwoFactorSetup';
 import { get2FASettings, disable2FA } from '../../services/twoFactorService';
 
 const Settings: React.FC = () => {
-  const { currentUser, googleSignIn } = useAuth();
+  const { currentUser } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -205,39 +204,39 @@ const Settings: React.FC = () => {
     }
   };
   
-  const handle2FASetupComplete = () => {
-    loadTwoFactorSettings();
-    
-    toast({
-      title: '2FA Enabled',
-      description: 'Two-factor authentication has been enabled for your account',
-      status: 'success',
-      duration: 5000,
-      isClosable: true,
-    });
-  };
-  
-  const handleConnectGoogle = async () => {
-    try {
-      await googleSignIn();
-      
-      toast({
-        title: 'Account Connected',
-        description: 'Successfully connected your Google account',
-        status: 'success',
-        duration: 5000,
-        isClosable: true,
-      });
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message,
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-    }
-  };
+  // Commented out unused functions to prevent TypeScript errors
+  // const handle2FASetupComplete = () => {
+  //   loadTwoFactorSettings();
+  //   
+  //   toast({
+  //     title: '2FA Enabled',
+  //     description: 'Two-factor authentication has been enabled for your account',
+  //     status: 'success',
+  //     duration: 5000,
+  //     isClosable: true,
+  //   });
+  // };
+  // 
+  // const handleConnectGoogle = async () => {
+  //   try {
+  //     await googleSignIn();
+  //     
+  //     toast({
+  //       title: 'Account Connected',
+  //       description: 'Successfully connected your Google account',
+  //       status: 'success',
+  //       duration: 5000,
+  //       isClosable: true,
+  //     });
+  //   } catch (error: any) {
+  //     toast({
+  //       title: 'Error',
+  //       status: 'error',
+  //       duration: 5000,
+  //       isClosable: true,
+  //     });
+  //   }
+  // };
 
   if (!currentUser) {
     return (

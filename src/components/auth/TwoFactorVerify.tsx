@@ -1,272 +1,417 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   VStack,
+  HStack,
   Heading,
   Text,
+  FormControl,
+  FormLabel,
+  Input,
   Button,
-  PinInput,
-  PinInputField,
-  HStack,
   useToast,
   Alert,
   AlertIcon,
-  Link,
-  Progress,
+  AlertTitle,
+  AlertDescription,
+  PinInput,
+  PinInputField,
+  Divider,
+  Spinner,
+  Center,
+  Flex,
+  Icon,
 } from '@chakra-ui/react';
-import { verifyBackupCode, get2FASettings, sendEmailCode, verifyEmailCode } from '../../services/twoFactorService';
+import { FaEnvelope, FaShieldAlt, FaClock, FaRedo } from 'react-icons/fa';
+import { verifyEmail2FACode, resend2FACode, verifyBackupCode } from '../../services/twoFactorService';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface TwoFactorVerifyProps {
-  onSuccess: () => void;
-  onCancel: () => void;
-  userId: string;
+  userId?: string;
+  onSuccess?: () => void;
+  onCancel?: () => void;
 }
 
-const TwoFactorVerify: React.FC<TwoFactorVerifyProps> = ({ onSuccess, onCancel, userId }) => {
-  const { currentUser } = useAuth();
-  const [verificationCode, setVerificationCode] = useState<string>('');
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+const TwoFactorVerify: React.FC<TwoFactorVerifyProps> = ({ userId, onSuccess, onCancel }) => {
+  const [verificationCode, setVerificationCode] = useState('');
+  const [backupCode, setBackupCode] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isUsingBackupCode, setIsUsingBackupCode] = useState<boolean>(false);
-  const [timeLeft, setTimeLeft] = useState<number>(0);
-  const [emailSentAt, setEmailSentAt] = useState<Date | null>(null);
+  const [countdown, setCountdown] = useState(0);
+  const [showBackupCode, setShowBackupCode] = useState(false);
+  const [codeExpiry, setCodeExpiry] = useState<Date | null>(null);
+  const [timeLeft, setTimeLeft] = useState('');
+
   const toast = useToast();
-  
+  const navigate = useNavigate();
+  const { pendingUser, complete2FALogin, setRequires2FA } = useAuth();
+
+  // Use userId from props or pendingUser
+  const currentUserId = userId || pendingUser?.uid;
+
   useEffect(() => {
-    loadUserSettings();
-  }, [userId]);
-  
-  useEffect(() => {
-    if (emailSentAt && timeLeft > 0) {
-      const timer = setInterval(() => {
-        const now = new Date();
-        const diff = 60 - Math.floor((now.getTime() - emailSentAt.getTime()) / 1000);
-        setTimeLeft(diff > 0 ? diff : 0);
-      }, 1000);
-      
-      return () => clearInterval(timer);
+    if (!currentUserId) {
+      navigate('/login');
+      return;
     }
-  }, [emailSentAt, timeLeft]);
-  
-  const loadUserSettings = async () => {
-    try {
-      const settings = await get2FASettings(userId);
-      if (settings.twofa_type === 'email') {
-        handleSendEmailCode();
-      } else {
-        throw new Error('Email-based 2FA is not configured');
-      }
-    } catch (error: any) {
-      setError(error.message);
-    }
-  };
-  
-  const handleSendEmailCode = async () => {
-    if (!userId) return;
+
+    // Start initial countdown for resend
+    setCountdown(30);
     
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      const settings = await get2FASettings(userId);
-      const targetEmail = settings.twofa_backup_email || currentUser?.email;
-      
-      if (!targetEmail) {
-        throw new Error('No email configured for 2FA');
-      }
-      
-      await sendEmailCode(userId, targetEmail);
-      setEmailSentAt(new Date());
-      setTimeLeft(60);
-      
-      toast({
-        title: 'Verification Code Sent',
-        description: `Please check your email at ${targetEmail} for the verification code.`,
-        status: 'success',
-        duration: 5000,
-        isClosable: true,
-      });
-    } catch (error: any) {
-      setError(error.message);
-      toast({
-        title: 'Error',
-        description: error.message,
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-    } finally {
-      setIsLoading(false);
+    // Set code expiry (10 minutes from now)
+    const expiry = new Date();
+    expiry.setMinutes(expiry.getMinutes() + 10);
+    setCodeExpiry(expiry);
+  }, [currentUserId, navigate]);
+
+  // Countdown timer for resend button
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
     }
-  };
-  
-  const handleVerify = async () => {
+  }, [countdown]);
+
+  // Expiry countdown timer
+  useEffect(() => {
+    if (!codeExpiry) return;
+
+    const updateTimeLeft = () => {
+      const now = new Date();
+      const diff = codeExpiry.getTime() - now.getTime();
+      
+      if (diff <= 0) {
+        setTimeLeft('Expired');
+        return;
+      }
+
+      const minutes = Math.floor(diff / 60000);
+      const seconds = Math.floor((diff % 60000) / 1000);
+      setTimeLeft(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+    };
+
+    updateTimeLeft();
+    const timer = setInterval(updateTimeLeft, 1000);
+    return () => clearInterval(timer);
+  }, [codeExpiry]);
+
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!verificationCode || !currentUserId) {
+      setError('Please enter the verification code');
+      return;
+    }
+
     try {
-      setIsLoading(true);
+      setIsSubmitting(true);
       setError(null);
-      
-      const settings = await get2FASettings(userId);
-      
-      if (!settings.twofa_enabled) {
-        throw new Error('2FA is not properly configured');
-      }
-      
-      let isValid = false;
-      
-      if (isUsingBackupCode) {
-        isValid = await verifyBackupCode(userId, verificationCode);
-      } else {
-        isValid = await verifyEmailCode(userId, verificationCode);
-      }
-      
-      if (!isValid) {
-        throw new Error(
-          isUsingBackupCode
-            ? 'Invalid backup code. Please try again.'
-            : 'Invalid verification code. Please try again.'
-        );
-      }
+
+      await verifyEmail2FACode(currentUserId, verificationCode);
       
       toast({
         title: 'Verification Successful',
-        description: 'You have successfully verified your identity.',
+        description: 'Two-factor authentication completed successfully',
         status: 'success',
         duration: 3000,
         isClosable: true,
       });
+
+      // Complete the login process
+      if (pendingUser) {
+        await complete2FALogin(pendingUser);
+      }
+
+      if (onSuccess) {
+        onSuccess();
+      }
+
+      navigate('/dashboard');
+    } catch (err: any) {
+      console.error('2FA verification error:', err);
+      setError(err.message || 'Invalid verification code. Please try again.');
       
-      onSuccess();
-    } catch (error: any) {
-      setError(error.message);
+      // Clear the input on error
+      setVerificationCode('');
+      
       toast({
         title: 'Verification Failed',
-        description: error.message,
+        description: err.message || 'Invalid verification code',
         status: 'error',
         duration: 5000,
         isClosable: true,
       });
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
-  
-  const toggleBackupCode = () => {
-    setIsUsingBackupCode(!isUsingBackupCode);
-    setVerificationCode('');
-    setError(null);
+
+  const handleBackupCodeVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!backupCode || !currentUserId) {
+      setError('Please enter a backup code');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setError(null);
+
+      await verifyBackupCode(currentUserId, backupCode);
+      
+      toast({
+        title: 'Backup Code Verified',
+        description: 'Successfully verified with backup code',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+
+      // Complete the login process
+      if (pendingUser) {
+        await complete2FALogin(pendingUser);
+      }
+
+      if (onSuccess) {
+        onSuccess();
+      }
+
+      navigate('/dashboard');
+    } catch (err: any) {
+      console.error('Backup code verification error:', err);
+      setError(err.message || 'Invalid backup code. Please try again.');
+      setBackupCode('');
+      
+      toast({
+        title: 'Verification Failed',
+        description: err.message || 'Invalid backup code',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
-  
+
+  const handleResendCode = async () => {
+    if (!currentUserId) return;
+
+    try {
+      setIsResending(true);
+      setError(null);
+      
+      await resend2FACode(currentUserId);
+      
+      // Reset countdown and expiry
+      setCountdown(30);
+      const newExpiry = new Date();
+      newExpiry.setMinutes(newExpiry.getMinutes() + 10);
+      setCodeExpiry(newExpiry);
+      
+      toast({
+        title: 'Code Sent',
+        description: 'A new verification code has been sent to your email',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (err: any) {
+      console.error('Error resending code:', err);
+      setError(err.message || 'Failed to resend code');
+      toast({
+        title: 'Failed to Resend',
+        description: err.message || 'Failed to resend verification code',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsResending(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setRequires2FA(false);
+    if (onCancel) {
+      onCancel();
+    } else {
+      navigate('/login');
+    }
+  };
+
+  if (!currentUserId) {
+    return (
+      <Center h="100vh">
+        <Spinner size="xl" />
+      </Center>
+    );
+  }
+
   return (
     <Box maxW="md" mx="auto" p={6}>
-      <VStack spacing={8} align="stretch">
-        <Heading size="lg" textAlign="center">
-          Two-Factor Authentication
-        </Heading>
-        
-        <Alert status="info">
+      <VStack spacing={6} align="stretch">
+        {/* Header */}
+        <VStack spacing={3} textAlign="center">
+          <Flex align="center" justify="center">
+            <Icon as={FaShieldAlt} color="blue.500" boxSize={8} mr={2} />
+            <Heading size="lg">Two-Factor Authentication</Heading>
+          </Flex>
+          <Text color="gray.600">
+            We've sent a verification code to your email address
+          </Text>
+        </VStack>
+
+        {/* Status indicators */}
+        <HStack spacing={4} justify="center">
+          <HStack>
+            <Icon as={FaEnvelope} color="green.500" />
+            <Text fontSize="sm" color="green.500">Email Sent</Text>
+          </HStack>
+          <HStack>
+            <Icon as={FaClock} color={timeLeft === 'Expired' ? 'red.500' : 'blue.500'} />
+            <Text fontSize="sm" color={timeLeft === 'Expired' ? 'red.500' : 'blue.500'}>
+              {timeLeft === 'Expired' ? 'Code Expired' : `Expires in ${timeLeft}`}
+            </Text>
+          </HStack>
+        </HStack>
+
+        {error && (
+          <Alert status="error" borderRadius="md">
+            <AlertIcon />
+            <Box>
+              <AlertTitle>Verification Failed</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Box>
+          </Alert>
+        )}
+
+        {/* Main verification form */}
+        {!showBackupCode ? (
+          <form onSubmit={handleVerify}>
+            <VStack spacing={4}>
+              <FormControl>
+                <FormLabel textAlign="center">Enter Verification Code</FormLabel>
+                <HStack justify="center">
+                  <PinInput 
+                    value={verificationCode} 
+                    onChange={setVerificationCode}
+                    size="lg"
+                    isDisabled={isSubmitting}
+                  >
+                    <PinInputField />
+                    <PinInputField />
+                    <PinInputField />
+                    <PinInputField />
+                    <PinInputField />
+                    <PinInputField />
+                  </PinInput>
+                </HStack>
+                <Text fontSize="sm" color="gray.500" textAlign="center" mt={2}>
+                  Enter the 6-digit code from your email
+                </Text>
+              </FormControl>
+
+              <Button
+                type="submit"
+                colorScheme="blue"
+                width="full"
+                size="lg"
+                isLoading={isSubmitting}
+                loadingText="Verifying..."
+                isDisabled={verificationCode.length !== 6}
+              >
+                Verify Code
+              </Button>
+            </VStack>
+          </form>
+        ) : (
+          /* Backup code form */
+          <form onSubmit={handleBackupCodeVerify}>
+            <VStack spacing={4}>
+              <FormControl>
+                <FormLabel>Enter Backup Code</FormLabel>
+                <Input
+                  type="text"
+                  value={backupCode}
+                  onChange={(e) => setBackupCode(e.target.value)}
+                  placeholder="Enter your backup code"
+                  size="lg"
+                  textAlign="center"
+                  textTransform="uppercase"
+                  isDisabled={isSubmitting}
+                />
+                <Text fontSize="sm" color="gray.500" textAlign="center" mt={2}>
+                  Enter one of your backup recovery codes
+                </Text>
+              </FormControl>
+
+              <Button
+                type="submit"
+                colorScheme="blue"
+                width="full"
+                size="lg"
+                isLoading={isSubmitting}
+                loadingText="Verifying..."
+                isDisabled={!backupCode.trim()}
+              >
+                Verify Backup Code
+              </Button>
+            </VStack>
+          </form>
+        )}
+
+        <Divider />
+
+        {/* Action buttons */}
+        <VStack spacing={2}>
+          <Button
+            variant="outline"
+            width="full"
+            onClick={handleResendCode}
+            isDisabled={countdown > 0 || timeLeft === 'Expired'}
+            isLoading={isResending}
+            loadingText="Sending..."
+            leftIcon={<FaRedo />}
+          >
+            {countdown > 0
+              ? `Resend code in ${countdown}s`
+              : timeLeft === 'Expired'
+              ? 'Request New Code'
+              : 'Resend Code'}
+          </Button>
+
+          <Button
+            variant="ghost"
+            width="full"
+            onClick={() => setShowBackupCode(!showBackupCode)}
+            isDisabled={isSubmitting}
+          >
+            {showBackupCode ? 'Use Email Code Instead' : 'Use Backup Code Instead'}
+          </Button>
+
+          <Button
+            variant="ghost"
+            width="full"
+            onClick={handleCancel}
+            isDisabled={isSubmitting || isResending}
+            color="gray.500"
+          >
+            Cancel and Return to Login
+          </Button>
+        </VStack>
+
+        {/* Help text */}
+        <Alert status="info" borderRadius="md">
           <AlertIcon />
-          <Box>
+          <Box fontSize="sm">
+            <Text fontWeight="medium">Having trouble?</Text>
             <Text>
-              {isUsingBackupCode
-                ? 'Enter one of your backup codes to verify your identity.'
-                : 'Enter the 6-digit code sent to your email.'}
+              Check your spam folder or try using a backup code if you can't receive the email.
             </Text>
           </Box>
         </Alert>
-        
-        {!isUsingBackupCode && timeLeft > 0 && (
-          <Box>
-            <Text mb={2} fontSize="sm" color="gray.600">
-              Resend code in {timeLeft} seconds
-            </Text>
-            <Progress value={(60 - timeLeft) * (100 / 60)} size="xs" colorScheme="blue" />
-          </Box>
-        )}
-        
-        <VStack spacing={4}>
-          {isUsingBackupCode ? (
-            <PinInput
-              type="alphanumeric"
-              value={verificationCode}
-              onChange={setVerificationCode}
-              placeholder=""
-              size="lg"
-            >
-              {Array.from({ length: 8 }).map((_, i) => (
-                <PinInputField key={i} />
-              ))}
-            </PinInput>
-          ) : (
-            <HStack justify="center">
-              <PinInput
-                type="number"
-                value={verificationCode}
-                onChange={setVerificationCode}
-                otp
-                size="lg"
-              >
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <PinInputField key={i} />
-                ))}
-              </PinInput>
-            </HStack>
-          )}
-          
-          {error && (
-            <Alert status="error">
-              <AlertIcon />
-              {error}
-            </Alert>
-          )}
-          
-          <Button
-            colorScheme="blue"
-            onClick={handleVerify}
-            isLoading={isLoading}
-            isDisabled={
-              isUsingBackupCode
-                ? verificationCode.length !== 8
-                : verificationCode.length !== 6
-            }
-            size="lg"
-            width="full"
-          >
-            Verify
-          </Button>
-          
-          {!isUsingBackupCode && timeLeft === 0 && (
-            <Button
-              variant="ghost"
-              onClick={handleSendEmailCode}
-              isDisabled={isLoading}
-              size="sm"
-            >
-              Resend Code
-            </Button>
-          )}
-          
-          <Link
-            color="blue.500"
-            onClick={toggleBackupCode}
-            _hover={{ textDecoration: 'underline', cursor: 'pointer' }}
-            textAlign="center"
-            fontSize="sm"
-          >
-            {isUsingBackupCode
-              ? 'Use verification code instead'
-              : 'Use backup code instead'}
-          </Link>
-          
-          <Button
-            variant="ghost"
-            onClick={onCancel}
-            size="sm"
-            isDisabled={isLoading}
-          >
-            Cancel
-          </Button>
-        </VStack>
       </VStack>
     </Box>
   );

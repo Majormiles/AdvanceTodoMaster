@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Box, Flex, ChakraProvider } from '@chakra-ui/react';
+import { Box, Flex, ChakraProvider, Spinner, Center } from '@chakra-ui/react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { Provider } from './components/ui/provider';
 
 // Components
 import Header from './components/layout/Header';
@@ -16,6 +15,7 @@ import Profile from './components/auth/Profile';
 import Settings from './components/auth/Settings';
 import TwoFactorBanner from './components/auth/TwoFactorBanner';
 import TwoFactorAuthPage from './pages/TwoFactorAuthPage';
+import TwoFactorVerify from './components/auth/TwoFactorVerify';
 import PrivateRoute from './components/PrivateRoute';
 
 function App() {
@@ -31,12 +31,26 @@ function App() {
 }
 
 const AppContent = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, isLoading, requires2FA, pendingUser } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
+
+  if (isLoading) {
+    return (
+      <Center h="100vh">
+        <Spinner
+          thickness="4px"
+          speed="0.65s"
+          emptyColor="gray.200"
+          color="blue.500"
+          size="xl"
+        />
+      </Center>
+    );
+  }
 
   return (
     <Flex direction="column" minH="100vh">
@@ -44,8 +58,43 @@ const AppContent = () => {
       <Header toggleSidebar={toggleSidebar} />
       <Box flex="1" mt={currentUser ? '72px' : 0}>
         <Routes>
-          <Route path="/login" element={!currentUser ? <Login /> : <Navigate to="/dashboard" />} />
-          <Route path="/register" element={!currentUser ? <Register /> : <Navigate to="/dashboard" />} />
+          {/* Public routes */}
+          <Route 
+            path="/login" 
+            element={
+              !currentUser && !requires2FA ? (
+                <Login />
+              ) : (
+                <Navigate to={requires2FA ? "/2fa-verify" : "/dashboard"} replace />
+              )
+            } 
+          />
+          <Route 
+            path="/register" 
+            element={
+              !currentUser && !requires2FA ? (
+                <Register />
+              ) : (
+                <Navigate to={requires2FA ? "/2fa-verify" : "/dashboard"} replace />
+              )
+            } 
+          />
+          
+          {/* 2FA verification route */}
+          <Route 
+            path="/2fa-verify" 
+            element={
+              requires2FA && pendingUser ? (
+                <TwoFactorVerify />
+              ) : currentUser ? (
+                <Navigate to="/dashboard" replace />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            } 
+          />
+          
+          {/* Protected routes */}
           <Route path="/dashboard" element={
             <PrivateRoute>
               <TaskList />
@@ -66,7 +115,25 @@ const AppContent = () => {
               <TwoFactorAuthPage />
             </PrivateRoute>
           } />
-          <Route path="/" element={<Navigate to={currentUser ? "/dashboard" : "/login"} />} />
+          
+          {/* Default redirects */}
+          <Route 
+            path="/" 
+            element={
+              <Navigate 
+                to={
+                  requires2FA 
+                    ? "/2fa-verify" 
+                    : currentUser 
+                    ? "/dashboard" 
+                    : "/login"
+                } 
+                replace 
+              />
+            } 
+          />
+          
+          {/* 404 route */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Box>
