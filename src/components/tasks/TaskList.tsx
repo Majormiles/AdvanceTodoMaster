@@ -54,6 +54,7 @@ import {
   FaTimes,
   FaEdit,
   FaTrash,
+  FaShare,
 } from 'react-icons/fa';
 import {
   Chart as ChartJS,
@@ -66,11 +67,13 @@ import {
 import { Pie } from 'react-chartjs-2';
 import TaskForm from './TaskForm';
 import CategorySelector from './CategorySelector';
-import { Task, TaskStatus, TaskPriority, Category, TaskFilter } from '../../types/task';
+import ShareTaskModal from './ShareTaskModal';
+import { Task, TaskStatus, TaskPriority, Category, TaskFilter, PermissionLevel } from '../../types/task';
 import { useAuth } from '../../contexts/AuthContext';
 import { getUserTasks, createTask, deleteTask, updateTask } from '../../services/taskService';
 import { subscribeToCategories, initializeDefaultCategories } from '../../services/categoryService';
-import { ensureUserHasCategories, debugCategories } from '../../utils/categoryUtils';
+import { addCollaborators } from '../../services/collaborationService';
+
 import { Timestamp } from 'firebase/firestore';
 import Carousel from '../ui/Carousel';
 import TaskListDrawer from './TaskListDrawer';
@@ -412,6 +415,10 @@ const TaskList: React.FC = () => {
   // New state for TaskListDrawer
   const [selectedCardType, setSelectedCardType] = useState<'total' | 'inProgress' | 'completed' | 'urgent' | null>(null);
 
+  // Sharing state
+  const [sharingTask, setSharingTask] = useState<Task | null>(null);
+  const { isOpen: isShareModalOpen, onOpen: onShareModalOpen, onClose: onShareModalClose } = useDisclosure();
+
   useEffect(() => {
     const loadData = async () => {
       if (!currentUser) {
@@ -557,6 +564,43 @@ const TaskList: React.FC = () => {
     }
   };
 
+  const handleShareTask = async (users: { email: string; permissionLevel: PermissionLevel }[], message?: string) => {
+    if (!currentUser || !sharingTask) return;
+
+    try {
+      await addCollaborators(
+        currentUser.uid,
+        sharingTask.id,
+        users,
+        currentUser.displayName || currentUser.email || 'Unknown User',
+        message
+      );
+
+      // Update the task in local state to mark it as shared
+      const updatedTasks = tasks.map(task => 
+        task.id === sharingTask.id 
+          ? { ...task, isShared: true, updatedAt: Timestamp.fromDate(new Date()) }
+          : task
+      );
+      setTasks(updatedTasks);
+
+      setSharingTask(null);
+    } catch (err: any) {
+      console.error('Error sharing task:', err);
+      setError('Failed to share task. Please try again.');
+      throw err;
+    }
+  };
+
+  const openShareModal = (task: Task) => {
+    setSharingTask(task);
+    onShareModalOpen();
+  };
+
+  const closeShareModal = () => {
+    setSharingTask(null);
+    onShareModalClose();
+  };
 
   const openEditTaskModal = (task: Task) => {
     setEditingTask(task);
@@ -688,24 +732,6 @@ const TaskList: React.FC = () => {
               >
                 Add Task
               </Button>
-              
-              {/* Debug Categories Button - Remove in production */}
-              {process.env.NODE_ENV === 'development' && (
-                <Button
-                  size={{ base: "sm", md: "md" }}
-                  variant="outline"
-                  onClick={async () => {
-                    if (currentUser) {
-                      console.log('🐛 Debug: Manual category check triggered');
-                      await debugCategories(currentUser.uid);
-                      const categories = await ensureUserHasCategories(currentUser.uid);
-                      setCategories(categories);
-                    }
-                  }}
-                >
-                  🐛 Fix Categories
-                </Button>
-              )}
             </ButtonGroup>
           </Flex>
 
@@ -1007,6 +1033,13 @@ const TaskList: React.FC = () => {
                             variant="ghost"
                           />
                           <IconButton
+                            aria-label="Share task"
+                            icon={<Icon as={FaShare} />}
+                            onClick={() => openShareModal(task)}
+                            colorScheme="blue"
+                            variant="ghost"
+                          />
+                          <IconButton
                             aria-label="Delete task"
                             icon={<Icon as={FaTrash} />}
                             onClick={() => handleDeleteTask(task.id)}
@@ -1071,6 +1104,13 @@ const TaskList: React.FC = () => {
                           variant="ghost"
                         />
                         <IconButton
+                          aria-label="Share task"
+                          icon={<Icon as={FaShare} />}
+                          onClick={() => openShareModal(task)}
+                          colorScheme="blue"
+                          variant="ghost"
+                        />
+                        <IconButton
                           aria-label="Delete task"
                           icon={<Icon as={FaTrash} />}
                           onClick={() => handleDeleteTask(task.id)}
@@ -1106,7 +1146,18 @@ const TaskList: React.FC = () => {
         onEditTask={openEditTaskModal}
         onDeleteTask={handleDeleteTask}
         onStatusChange={handleStatusChange}
+        onShareTask={openShareModal}
       />
+
+      {/* Share Task Modal */}
+      {sharingTask && (
+        <ShareTaskModal
+          isOpen={isShareModalOpen}
+          onClose={closeShareModal}
+          task={sharingTask}
+          onShare={handleShareTask}
+        />
+      )}
     </Box>
   );
 };

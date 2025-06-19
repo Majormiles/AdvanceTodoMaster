@@ -16,7 +16,7 @@ import {
   useColorModeValue,
   Checkbox
 } from '@chakra-ui/react';
-import { Task, Category } from '../../types/task';
+import { Task, Category, PermissionLevel } from '../../types/task';
 import { 
   FaEllipsisV, 
   FaEdit, 
@@ -49,7 +49,7 @@ interface TaskItemProps {
   onEdit: (task: Task) => void;
   onDelete: (taskId: string) => void;
   onStatusChange: (taskId: string, status: Task['status']) => void;
-  onShare: (taskId: string, email: string, permission: string) => Promise<void>;
+  onShare: (users: { email: string; permissionLevel: PermissionLevel }[], message?: string) => Promise<void>;
 }
 
 const TaskItem: React.FC<TaskItemProps> = ({
@@ -190,8 +190,8 @@ const TaskItem: React.FC<TaskItemProps> = ({
       <ShareTaskModal
         isOpen={isShareOpen}
         onClose={onShareClose}
-        onShare={(email, permission) => onShare(task.id, email, permission)}
-        taskTitle={task.title}
+        task={task}
+        onShare={onShare}
       />
       
       <TaskDetailModal

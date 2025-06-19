@@ -10,14 +10,369 @@ import {
   Timestamp,
   setDoc,
   deleteDoc,
-  getDocs
+  getDocs,
+  getDoc,
+  limit
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { 
   TaskPresence, 
   TaskNotification,
-  Task 
+  Task,
+  TaskCollaborator,
+  PermissionLevel
 } from '../types/task';
+
+// User search interface for sharing
+interface UserSearchResult {
+  uid: string;
+  email: string;
+  displayName: string;
+  photoURL?: string;
+  lastSeen?: Date;
+}
+
+// Search users for sharing (implementation depends on your user collection structure)
+export const searchUsers = async (query: string, limitResults: number = 10): Promise<UserSearchResult[]> => {
+  try {
+    // This implementation assumes you have a 'users' collection
+    // You might need to adjust based on your Firebase Auth setup
+    const usersQuery = collection(db, 'users');
+    const usersSnapshot = await getDocs(usersQuery);
+    
+    const users: UserSearchResult[] = [];
+    const searchLower = query.toLowerCase();
+    
+    usersSnapshot.forEach((doc) => {
+      const userData = doc.data();
+      const displayName = userData.displayName || userData.name || '';
+      const email = userData.email || '';
+      
+      // Simple search implementation - you might want to use Algolia or similar for production
+      if (
+        displayName.toLowerCase().includes(searchLower) ||
+        email.toLowerCase().includes(searchLower)
+      ) {
+        users.push({
+          uid: doc.id,
+          email: email,
+          displayName: displayName,
+          photoURL: userData.photoURL,
+          lastSeen: userData.lastSeen?.toDate()
+        });
+      }
+    });
+    
+    return users.slice(0, limitResults);
+  } catch (error) {
+    console.error('Error searching users:', error);
+    throw new Error('Failed to search users');
+  }
+};
+
+// Get task collaborators
+export const getTaskCollaborators = async (ownerId: string, taskId: string): Promise<TaskCollaborator[]> => {
+  try {
+    const taskRef = doc(db, 'users', ownerId, 'tasks', taskId);
+    const taskSnap = await getDoc(taskRef);
+    
+    if (!taskSnap.exists()) {
+      throw new Error('Task not found');
+    }
+    
+    const taskData = taskSnap.data();
+    const collaborators = taskData.collaborators || [];
+    
+    // Add owner as a collaborator if not already present
+    const ownerExists = collaborators.some((collab: TaskCollaborator) => collab.userId === ownerId);
+    if (!ownerExists) {
+      // Get owner details
+      const ownerRef = doc(db, 'users', ownerId);
+      const ownerSnap = await getDoc(ownerRef);
+      
+      if (ownerSnap.exists()) {
+        const ownerData = ownerSnap.data();
+        collaborators.unshift({
+          userId: ownerId,
+          userEmail: ownerData.email,
+          userDisplayName: ownerData.displayName || ownerData.name,
+          userPhotoURL: ownerData.photoURL,
+          permissionLevel: 'admin' as PermissionLevel,
+          joinedAt: taskData.createdAt,
+          isOwner: true
+        });
+      }
+    }
+    
+    return collaborators;
+  } catch (error) {
+    console.error('Error getting task collaborators:', error);
+    throw error;
+  }
+};
+
+// Update user permission
+export const updateUserPermission = async (
+  ownerId: string, 
+  taskId: string, 
+  userId: string, 
+  newPermission: PermissionLevel
+): Promise<void> => {
+  try {
+    const taskRef = doc(db, 'users', ownerId, 'tasks', taskId);
+    const taskSnap = await getDoc(taskRef);
+    
+    if (!taskSnap.exists()) {
+      throw new Error('Task not found');
+    }
+    
+    const taskData = taskSnap.data();
+    const collaborators = taskData.collaborators || [];
+    
+    // Update collaborator permission
+    const updatedCollaborators = collaborators.map((collab: TaskCollaborator) =>
+      collab.userId === userId 
+        ? { ...collab, permissionLevel: newPermission }
+        : collab
+    );
+    
+    await updateDoc(taskRef, {
+      collaborators: updatedCollaborators,
+      updatedAt: Timestamp.now()
+    });
+    
+    // Create notification for the user whose permission was changed
+    if (userId !== ownerId) {
+      await createNotification(
+        userId,
+        taskId,
+        'permission_changed',
+        'Permission Updated',
+        `Your permission for "${taskData.title}" has been changed to ${newPermission}`,
+        { newPermission, taskTitle: taskData.title }
+      );
+    }
+  } catch (error) {
+    console.error('Error updating user permission:', error);
+    throw error;
+  }
+};
+
+// Remove collaborator
+export const removeCollaborator = async (
+  ownerId: string, 
+  taskId: string, 
+  userId: string
+): Promise<void> => {
+  try {
+    const taskRef = doc(db, 'users', ownerId, 'tasks', taskId);
+    const taskSnap = await getDoc(taskRef);
+    
+    if (!taskSnap.exists()) {
+      throw new Error('Task not found');
+    }
+    
+    const taskData = taskSnap.data();
+    const collaborators = taskData.collaborators || [];
+    
+    // Remove collaborator
+    const updatedCollaborators = collaborators.filter((collab: TaskCollaborator) => 
+      collab.userId !== userId
+    );
+    
+    // Update sharing info as well
+    const sharing = taskData.sharing || [];
+    const updatedSharing = sharing.filter((share: any) => share.userId !== userId);
+    
+    await updateDoc(taskRef, {
+      collaborators: updatedCollaborators,
+      sharing: updatedSharing,
+      isShared: updatedCollaborators.length > 1, // More than just the owner
+      updatedAt: Timestamp.now()
+    });
+    
+    // Create notification for the removed user
+    const removedUser = collaborators.find((collab: TaskCollaborator) => collab.userId === userId);
+    if (removedUser) {
+      await createNotification(
+        userId,
+        taskId,
+        'access_removed',
+        'Access Removed',
+        `You no longer have access to "${taskData.title}"`,
+        { taskTitle: taskData.title }
+      );
+    }
+    
+    // Also remove from user's shared tasks if it exists
+    try {
+      const userSharedTaskRef = doc(db, 'users', userId, 'sharedTasks', taskId);
+      await deleteDoc(userSharedTaskRef);
+    } catch (error) {
+      // Ignore if doesn't exist
+      console.log('Shared task not found in user collection, skipping...');
+    }
+  } catch (error) {
+    console.error('Error removing collaborator:', error);
+    throw error;
+  }
+};
+
+// Add collaborators (used when sharing task)
+export const addCollaborators = async (
+  ownerId: string,
+  taskId: string,
+  users: { email: string; permissionLevel: PermissionLevel }[],
+  ownerDisplayName: string,
+  message?: string
+): Promise<void> => {
+  try {
+    const taskRef = doc(db, 'users', ownerId, 'tasks', taskId);
+    const taskSnap = await getDoc(taskRef);
+    
+    if (!taskSnap.exists()) {
+      throw new Error('Task not found');
+    }
+    
+    const taskData = taskSnap.data();
+    const existingCollaborators = taskData.collaborators || [];
+    const existingSharing = taskData.sharing || [];
+    
+    const newCollaborators = [...existingCollaborators];
+    const newSharing = [...existingSharing];
+    
+    for (const user of users) {
+      // Check if user already exists
+      const existingCollab = existingCollaborators.find((collab: TaskCollaborator) => 
+        collab.userEmail === user.email
+      );
+      
+      if (!existingCollab) {
+        // Try to find user in users collection
+        const usersQuery = query(
+          collection(db, 'users'),
+          where('email', '==', user.email),
+          limit(1)
+        );
+        const userSnap = await getDocs(usersQuery);
+        
+        let userData: any = null;
+        if (!userSnap.empty) {
+          userData = userSnap.docs[0].data();
+          userData.uid = userSnap.docs[0].id;
+        }
+        
+        // Add to collaborators - filter out undefined values
+        const newCollaborator: TaskCollaborator = {
+          userId: userData?.uid || user.email, // Use email as fallback ID
+          userEmail: user.email,
+          userDisplayName: userData?.displayName || userData?.name || user.email,
+          permissionLevel: user.permissionLevel,
+          joinedAt: Timestamp.now(),
+          isOwner: false,
+          ...(userData?.photoURL && { userPhotoURL: userData.photoURL })
+        };
+        
+        newCollaborators.push(newCollaborator);
+        
+        // Add to sharing info - filter out undefined values
+        const sharingData: any = {
+          email: user.email,
+          permissionLevel: user.permissionLevel,
+          sharedTaskId: `${taskId}_${user.email}`,
+          sharedAt: Timestamp.now(),
+          sharedBy: ownerId
+        };
+        
+        // Only add userId if it exists
+        if (userData?.uid) {
+          sharingData.userId = userData.uid;
+        }
+        
+        newSharing.push(sharingData);
+        
+        // Create notification if user exists
+        if (userData?.uid) {
+          // Create metadata object without undefined values
+          const notificationMetadata: any = {
+            ownerDisplayName, 
+            taskTitle: taskData.title, 
+            permissionLevel: user.permissionLevel
+          };
+          
+          // Only add message if it's not undefined
+          if (message !== undefined && message !== null) {
+            notificationMetadata.message = message;
+          }
+          
+          await createNotification(
+            userData.uid,
+            taskId,
+            'task_shared',
+            'Task Shared With You',
+            `${ownerDisplayName} shared "${taskData.title}" with you${message ? ': ' + message : ''}`,
+            notificationMetadata
+          );
+          
+          // Add to user's shared tasks collection
+          const sharedTaskRef = doc(db, 'users', userData.uid, 'sharedTasks', taskId);
+          await setDoc(sharedTaskRef, {
+            originalTaskId: taskId,
+            ownerId: ownerId,
+            ownerDisplayName: ownerDisplayName,
+            ownerEmail: taskData.userEmail || '',
+            sharedAt: Timestamp.now(),
+            permissionLevel: user.permissionLevel,
+            taskData: {
+              id: taskId,
+              title: taskData.title,
+              description: taskData.description,
+              status: taskData.status,
+              priority: taskData.priority,
+              dueDate: taskData.dueDate,
+              createdAt: taskData.createdAt,
+              updatedAt: taskData.updatedAt
+            },
+            lastSyncedAt: Timestamp.now()
+          });
+        }
+      }
+    }
+    
+    // Clean the arrays to remove any undefined values before updating
+    const cleanCollaborators = newCollaborators.map((collab: any) => {
+      const cleaned: any = {};
+      Object.entries(collab).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          cleaned[key] = value;
+        }
+      });
+      return cleaned;
+    });
+
+    const cleanSharing = newSharing.map((share: any) => {
+      const cleaned: any = {};
+      Object.entries(share).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          cleaned[key] = value;
+        }
+      });
+      return cleaned;
+    });
+
+    // Update task with new collaborators and sharing info
+    await updateDoc(taskRef, {
+      collaborators: cleanCollaborators,
+      sharing: cleanSharing,
+      isShared: newCollaborators.length > 1,
+      updatedAt: Timestamp.now()
+    });
+    
+  } catch (error) {
+    console.error('Error adding collaborators:', error);
+    throw error;
+  }
+};
 
 // Real-time presence management
 export const updateUserPresence = async (
@@ -106,6 +461,12 @@ export const createNotification = async (
   metadata?: TaskNotification['metadata']
 ) => {
   try {
+    // Filter out undefined values from metadata to prevent Firebase errors
+    const cleanMetadata = metadata ? 
+      Object.fromEntries(
+        Object.entries(metadata).filter(([_, value]) => value !== undefined && value !== null)
+      ) : undefined;
+
     const notificationData: Omit<TaskNotification, 'id'> = {
       userId: recipientUserId,
       taskId,
@@ -113,7 +474,7 @@ export const createNotification = async (
       title,
       message,
       createdAt: Timestamp.now(),
-      metadata
+      ...(cleanMetadata && Object.keys(cleanMetadata).length > 0 && { metadata: cleanMetadata })
     };
     
     const notificationRef = await addDoc(

@@ -26,7 +26,7 @@ import {
   Spinner,
   Center,
 } from '@chakra-ui/react';
-import { FaSearch, FaEdit, FaTrash, FaCheck, FaChevronRight } from 'react-icons/fa';
+import { FaSearch, FaEdit, FaTrash, FaCheck, FaChevronRight, FaShare } from 'react-icons/fa';
 import { Task, TaskStatus } from '../../types/task';
 
 // Custom debounce hook
@@ -56,6 +56,7 @@ interface TaskListDrawerProps {
   onEditTask: (task: Task) => void;
   onDeleteTask: (taskId: string) => void;
   onStatusChange: (taskId: string, status: TaskStatus) => void;
+  onShareTask?: (task: Task) => void;
 }
 
 const TaskListDrawer: React.FC<TaskListDrawerProps> = ({
@@ -66,6 +67,7 @@ const TaskListDrawer: React.FC<TaskListDrawerProps> = ({
   onEditTask,
   onDeleteTask,
   onStatusChange,
+  onShareTask,
 }) => {
   const [searchInput, setSearchInput] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('date');
@@ -283,6 +285,16 @@ const TaskListDrawer: React.FC<TaskListDrawerProps> = ({
                           variant="ghost"
                           onClick={() => onEditTask(task)}
                         />
+                        {onShareTask && (
+                          <IconButton
+                            aria-label="Share task"
+                            icon={<FaShare />}
+                            size="sm"
+                            colorScheme="blue"
+                            variant="ghost"
+                            onClick={() => onShareTask(task)}
+                          />
+                        )}
                         <IconButton
                           aria-label="Delete task"
                           icon={<FaTrash />}

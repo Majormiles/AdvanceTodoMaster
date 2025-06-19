@@ -55,6 +55,7 @@ export interface TaskCollaborator {
   joinedAt: Timestamp;
   lastActive?: Timestamp;
   isOnline?: boolean;
+  isOwner?: boolean;
 }
 
 export interface Category {
@@ -169,7 +170,7 @@ export interface TaskNotification {
   id: string;
   userId: string; // Recipient
   taskId: string;
-  type: 'task_shared' | 'task_assigned' | 'comment_added' | 'status_changed' | 'due_reminder' | 'mention';
+  type: 'task_shared' | 'task_assigned' | 'comment_added' | 'status_changed' | 'due_reminder' | 'mention' | 'permission_changed' | 'access_removed';
   title: string;
   message: string;
   createdAt: Timestamp;
@@ -181,6 +182,11 @@ export interface TaskNotification {
     commentId?: string;
     oldStatus?: TaskStatus;
     newStatus?: TaskStatus;
+    newPermission?: PermissionLevel;
+    taskTitle?: string;
+    ownerDisplayName?: string;
+    permissionLevel?: PermissionLevel;
+    message?: string;
   };
 }
 
