@@ -25,6 +25,8 @@ import {
   useDisclosure
 } from '@chakra-ui/react';
 import { useAuth } from '../../contexts/AuthContext';
+import { get2FASettings } from '../../services/twoFactorService';
+import TwoFactorVerify from './TwoFactorVerify';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -35,9 +37,15 @@ const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resetSuccess, setResetSuccess] = useState(false);
+  const [pendingUserId, setPendingUserId] = useState<string | null>(null);
   const { login, googleSignIn, resetPassword } = useAuth();
   const navigate = useNavigate();
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const {
+    isOpen: is2FAOpen,
+    onOpen: on2FAOpen,
+    onClose: on2FAClose
+  } = useDisclosure();
   const toast = useToast();
 
   // Validation states
@@ -90,21 +98,58 @@ const Login: React.FC = () => {
       setError(null);
       setIsSubmitting(true);
       
-      await login(email, password);
-      navigate('/dashboard');
-      toast({
-        title: "Welcome back!",
-        description: "Successfully logged in.",
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-      });
+      // First, attempt to log in
+      const userCredential = await login(email, password);
+      
+      // Check if 2FA is enabled for this user
+      const settings = await get2FASettings(userCredential.user.uid);
+      
+      if (settings.twofa_enabled) {
+        // Store the user ID and show 2FA verification
+        setPendingUserId(userCredential.user.uid);
+        on2FAOpen();
+      } else {
+        // No 2FA, proceed with login
+        completeLogin();
+      }
     } catch (err: any) {
       setError(err.message);
       toast({
-        title: "Error",
+        title: 'Error',
         description: err.message,
-        status: "error",
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setError(null);
+      setIsSubmitting(true);
+      
+      const result = await googleSignIn();
+      
+      // Check if 2FA is enabled for this user
+      const settings = await get2FASettings(result.user.uid);
+      
+      if (settings.twofa_enabled) {
+        // Store the user ID and show 2FA verification
+        setPendingUserId(result.user.uid);
+        on2FAOpen();
+      } else {
+        // No 2FA, proceed with login
+        completeLogin();
+      }
+    } catch (err: any) {
+      setError(err.message);
+      toast({
+        title: 'Error',
+        description: err.message,
+        status: 'error',
         duration: 5000,
         isClosable: true,
       });
@@ -123,18 +168,18 @@ const Login: React.FC = () => {
       await resetPassword(resetEmail);
       setResetSuccess(true);
       toast({
-        title: "Reset link sent",
-        description: "Please check your email for password reset instructions.",
-        status: "success",
+        title: 'Reset link sent',
+        description: 'Please check your email for password reset instructions.',
+        status: 'success',
         duration: 5000,
         isClosable: true,
       });
     } catch (err: any) {
       setError(err.message);
       toast({
-        title: "Error",
+        title: 'Error',
         description: err.message,
-        status: "error",
+        status: 'error',
         duration: 5000,
         isClosable: true,
       });
@@ -151,32 +196,25 @@ const Login: React.FC = () => {
     onClose();
   };
 
-  const handleGoogleSignIn = async () => {
-    try {
-      setError(null);
-      setIsSubmitting(true);
-      
-      await googleSignIn();
-      navigate('/dashboard');
-      toast({
-        title: "Welcome!",
-        description: "Successfully signed in with Google.",
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-      });
-    } catch (err: any) {
-      setError(err.message);
-      toast({
-        title: "Error",
-        description: err.message,
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+  const completeLogin = () => {
+    navigate('/dashboard');
+    toast({
+      title: 'Welcome back!',
+      description: 'Successfully logged in.',
+      status: 'success',
+      duration: 3000,
+      isClosable: true,
+    });
+  };
+
+  const handle2FASuccess = () => {
+    on2FAClose();
+    completeLogin();
+  };
+
+  const handle2FACancel = () => {
+    on2FAClose();
+    setPendingUserId(null);
   };
 
   return (
@@ -269,8 +307,6 @@ const Login: React.FC = () => {
             >
               Sign in with Google
             </Button>
-            
-   
           </VStack>
 
           <Text>
@@ -280,6 +316,7 @@ const Login: React.FC = () => {
             </Link>
           </Text>
 
+          {/* Password Reset Modal */}
           <Modal isOpen={isOpen} onClose={handleResetModalClose}>
             <ModalOverlay />
             <ModalContent>
@@ -311,7 +348,7 @@ const Login: React.FC = () => {
               </ModalBody>
 
               <ModalFooter>
-                <Button onClick={onClose}>
+                <Button onClick={handleResetModalClose}>
                   Cancel
                 </Button>
                 <Button
@@ -324,6 +361,27 @@ const Login: React.FC = () => {
                   {resetSuccess ? 'Done' : 'Reset Password'}
                 </Button>
               </ModalFooter>
+            </ModalContent>
+          </Modal>
+
+          {/* 2FA Verification Modal */}
+          <Modal
+            isOpen={is2FAOpen}
+            onClose={handle2FACancel}
+            closeOnOverlayClick={false}
+            size="md"
+          >
+            <ModalOverlay />
+            <ModalContent>
+              <ModalBody p={0}>
+                {pendingUserId && (
+                  <TwoFactorVerify
+                    userId={pendingUserId}
+                    onSuccess={handle2FASuccess}
+                    onCancel={handle2FACancel}
+                  />
+                )}
+              </ModalBody>
             </ModalContent>
           </Modal>
         </VStack>

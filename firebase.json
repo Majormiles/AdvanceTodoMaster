@@ -2,6 +2,9 @@
   "database": {
     "rules": "database.rules.json"
   },
+  "functions": {
+    "source": "functions"
+  },
   "hosting": {
     "public": "dist",
     "ignore": [
@@ -35,5 +38,20 @@
         ]
       }
     ]
+  },
+  "emulators": {
+    "functions": {
+      "port": 5001
+    },
+    "database": {
+      "port": 9090
+    },
+    "hosting": {
+      "port": 5000
+    },
+    "ui": {
+      "enabled": true
+    },
+    "singleProjectMode": true
   }
 }

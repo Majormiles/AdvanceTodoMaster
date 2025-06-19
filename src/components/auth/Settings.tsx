@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   VStack,
@@ -26,64 +26,96 @@ import {
   Card,
   CardBody,
   CardHeader,
+  Divider,
+  Badge,
+  Stat,
+  StatLabel,
+  StatNumber,
+  StatHelpText,
 } from '@chakra-ui/react';
-import { FaGoogle, FaTrash, FaKey, FaShieldAlt, FaLink } from 'react-icons/fa';
+import { FaTrash, FaKey, FaShieldAlt, FaLock, FaUnlock } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, deleteUser } from 'firebase/auth';
 import { doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../contexts/AuthContext';
+import TwoFactorSetup from './TwoFactorSetup';
+import { get2FASettings, disable2FA } from '../../services/twoFactorService';
 
 const Settings: React.FC = () => {
   const { currentUser, googleSignIn } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState<boolean>(false);
+  const [backupCodesRemaining, setBackupCodesRemaining] = useState<number>(0);
+  const [lastUsed, setLastUsed] = useState<string | null>(null);
   
-  // Modal controls
-  const { isOpen: isPasswordOpen, onOpen: onPasswordOpen, onClose: onPasswordClose } = useDisclosure();
-  const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
+  // Modal states
+  const {
+    isOpen: isPasswordModalOpen,
+    onOpen: onPasswordModalOpen,
+    onClose: onPasswordModalClose
+  } = useDisclosure();
+  
+  const {
+    isOpen: isDeleteModalOpen,
+    onOpen: onDeleteModalOpen,
+    onClose: onDeleteModalClose
+  } = useDisclosure();
   
   // Form states
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [deletePassword, setDeletePassword] = useState('');
-
+  
+  useEffect(() => {
+    loadTwoFactorSettings();
+  }, [currentUser]);
+  
+  const loadTwoFactorSettings = async () => {
+    if (!currentUser?.uid) return;
+    
+    try {
+      const settings = await get2FASettings(currentUser.uid);
+      setTwoFactorEnabled(settings.twofa_enabled);
+      setBackupCodesRemaining(settings.twofa_backup_codes.length);
+      setLastUsed(settings.twofa_last_used);
+    } catch (error) {
+      console.error('Error loading 2FA settings:', error);
+    }
+  };
+  
   const handlePasswordChange = async () => {
     if (!currentUser || !currentUser.email) return;
     
-    if (newPassword !== confirmPassword) {
-      toast({
-        title: 'Error',
-        description: 'New passwords do not match',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-      return;
-    }
-
     try {
+      setIsLoading(true);
+      
+      // Validate new password
+      if (newPassword !== confirmPassword) {
+        throw new Error('New passwords do not match');
+      }
+      
+      // Re-authenticate user
       const credential = EmailAuthProvider.credential(
         currentUser.email,
         currentPassword
       );
-      
       await reauthenticateWithCredential(currentUser, credential);
+      
+      // Update password
       await updatePassword(currentUser, newPassword);
       
+      onPasswordModalClose();
       toast({
-        title: 'Success',
-        description: 'Your password has been updated',
+        title: 'Password Updated',
+        description: 'Your password has been successfully changed',
         status: 'success',
         duration: 5000,
         isClosable: true,
       });
-      
-      onPasswordClose();
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -92,13 +124,20 @@ const Settings: React.FC = () => {
         duration: 5000,
         isClosable: true,
       });
+    } finally {
+      setIsLoading(false);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
     }
   };
-
+  
   const handleAccountDeletion = async () => {
     if (!currentUser || !currentUser.email) return;
-
+    
     try {
+      setIsLoading(true);
+      
       const credential = EmailAuthProvider.credential(
         currentUser.email,
         deletePassword
@@ -129,9 +168,55 @@ const Settings: React.FC = () => {
         duration: 5000,
         isClosable: true,
       });
+    } finally {
+      setIsLoading(false);
+      setDeletePassword('');
     }
   };
-
+  
+  const handleDisable2FA = async () => {
+    if (!currentUser?.uid) return;
+    
+    try {
+      setIsLoading(true);
+      await disable2FA(currentUser.uid);
+      
+      setTwoFactorEnabled(false);
+      setBackupCodesRemaining(0);
+      setLastUsed(null);
+      
+      toast({
+        title: '2FA Disabled',
+        description: 'Two-factor authentication has been disabled for your account',
+        status: 'info',
+        duration: 5000,
+        isClosable: true,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const handle2FASetupComplete = () => {
+    loadTwoFactorSettings();
+    
+    toast({
+      title: '2FA Enabled',
+      description: 'Two-factor authentication has been enabled for your account',
+      status: 'success',
+      duration: 5000,
+      isClosable: true,
+    });
+  };
+  
   const handleConnectGoogle = async () => {
     try {
       await googleSignIn();
@@ -168,195 +253,229 @@ const Settings: React.FC = () => {
   return (
     <Box maxW="6xl" mx="auto" p={6}>
       <VStack spacing={8} align="stretch">
-        {/* Header */}
-        <Box textAlign="center" py={4}>
-          <Heading size="xl" mb={2}>Account Settings</Heading>
-          <Text color="gray.600">Manage your account preferences and security settings</Text>
-        </Box>
-
-        {/* Main Grid Layout */}
-        <Grid 
-          templateColumns={{ base: "1fr", lg: "repeat(2, 1fr)" }} 
-          gap={8}
-          alignItems="start"
-        >
-          {/* Security Settings */}
-          <GridItem>
-            <Card h="full">
-              <CardHeader>
-                <HStack spacing={3}>
-                  <Icon as={FaShieldAlt} color="blue.500" boxSize={5} />
-                  <Heading size="md">Security</Heading>
-                </HStack>
-              </CardHeader>
-              <CardBody>
-                <VStack spacing={4} align="stretch">
-                  <Box>
-                    <Text fontSize="sm" color="gray.600" mb={3}>
-                      Keep your account secure by regularly updating your password
+        <Heading size="xl">Account Settings</Heading>
+        
+        {/* Security Section */}
+        <Card>
+          <CardHeader>
+            <Heading size="md">Security Settings</Heading>
+          </CardHeader>
+          <CardBody>
+            <VStack spacing={6} align="stretch">
+              {/* Two-Factor Authentication */}
+              <Box>
+                <HStack justify="space-between" mb={4}>
+                  <VStack align="start" spacing={1}>
+                    <HStack>
+                      <Icon as={FaShieldAlt} />
+                      <Text fontWeight="bold">Two-Factor Authentication</Text>
+                    </HStack>
+                    <Text color="gray.600" fontSize="sm">
+                      Add an extra layer of security to your account
                     </Text>
-                    <Button 
-                      onClick={onPasswordOpen} 
-                      colorScheme="blue" 
-                      variant="outline"
-                      leftIcon={<Icon as={FaKey} />}
-                      width="full"
-                      justifyContent="flex-start"
-                    >
-                      Change Password
-                    </Button>
-                  </Box>
-                </VStack>
-              </CardBody>
-            </Card>
-          </GridItem>
-
-          {/* Connected Accounts */}
-          <GridItem>
-            <Card h="full">
-              <CardHeader>
-                <HStack spacing={3}>
-                  <Icon as={FaLink} color="green.500" boxSize={5} />
-                  <Heading size="md">Connected Accounts</Heading>
+                  </VStack>
+                  <Badge
+                    colorScheme={twoFactorEnabled ? 'green' : 'red'}
+                    variant="subtle"
+                    px={3}
+                    py={1}
+                    borderRadius="full"
+                  >
+                    {twoFactorEnabled ? 'Enabled' : 'Disabled'}
+                  </Badge>
                 </HStack>
-              </CardHeader>
-              <CardBody>
-                <VStack spacing={4} align="stretch">
-                  <Box>
-                    <Text fontSize="sm" color="gray.600" mb={3}>
-                      Link your social accounts for easier sign-in
-                    </Text>
-                    <Button
-                      leftIcon={<Icon as={FaGoogle} />}
-                      onClick={handleConnectGoogle}
-                      colorScheme="red"
-                      variant="outline"
-                      width="full"
-                      justifyContent="flex-start"
-                    >
-                      Connect Google Account
-                    </Button>
-                  </Box>
-                </VStack>
-              </CardBody>
-            </Card>
-          </GridItem>
-        </Grid>
-
-        {/* Danger Zone - Full Width */}
-        <Box mt={8}>
-          <Card borderColor="red.200" borderWidth={1}>
-            <CardHeader bg="red.50">
-              <HStack spacing={3}>
-                <Icon as={FaTrash} color="red.500" boxSize={5} />
-                <Heading size="md" color="red.600">Danger Zone</Heading>
-              </HStack>
-            </CardHeader>
-            <CardBody>
-              <Grid templateColumns={{ base: "1fr", md: "2fr 1fr" }} gap={4} alignItems="center">
-                <Box>
-                  <Text fontWeight="semibold" mb={1}>Delete Account</Text>
-                  <Text fontSize="sm" color="gray.600">
-                    Permanently delete your account and all associated data. This action cannot be undone.
-                  </Text>
-                </Box>
-                <Box display="flex" justifyContent={{ base: "stretch", md: "flex-end" }}>
+                
+                {twoFactorEnabled ? (
+                  <VStack align="stretch" spacing={4}>
+                    <Grid templateColumns="repeat(2, 1fr)" gap={4}>
+                      <GridItem>
+                        <Stat>
+                          <StatLabel>Backup Codes Remaining</StatLabel>
+                          <StatNumber>{backupCodesRemaining}</StatNumber>
+                          <StatHelpText>
+                            {backupCodesRemaining <= 2 && (
+                              <Text color="red.500">Running low on backup codes!</Text>
+                            )}
+                          </StatHelpText>
+                        </Stat>
+                      </GridItem>
+                      <GridItem>
+                        <Stat>
+                          <StatLabel>Last Used</StatLabel>
+                          <StatNumber>
+                            {lastUsed
+                              ? new Date(lastUsed).toLocaleDateString()
+                              : 'Never'}
+                          </StatNumber>
+                        </Stat>
+                      </GridItem>
+                    </Grid>
+                    
+                    <HStack spacing={4}>
+                      <Button
+                        leftIcon={<Icon as={FaUnlock} />}
+                        colorScheme="red"
+                        variant="outline"
+                        onClick={handleDisable2FA}
+                        isLoading={isLoading}
+                      >
+                        Disable 2FA
+                      </Button>
+                      <Button
+                        leftIcon={<Icon as={FaKey} />}
+                        onClick={() => navigate('/2fa-setup')}
+                        isLoading={isLoading}
+                      >
+                        Generate New Backup Codes
+                      </Button>
+                    </HStack>
+                  </VStack>
+                ) : (
                   <Button
-                    leftIcon={<Icon as={FaTrash} />}
-                    onClick={onDeleteOpen}
+                    leftIcon={<Icon as={FaLock} />}
+                    colorScheme="blue"
+                    onClick={() => navigate('/2fa-setup')}
+                    isLoading={isLoading}
+                  >
+                    Enable Two-Factor Authentication
+                  </Button>
+                )}
+              </Box>
+              
+              <Divider />
+              
+              {/* Password Change */}
+              <Box>
+                <HStack justify="space-between">
+                  <VStack align="start" spacing={1}>
+                    <HStack>
+                      <Icon as={FaKey} />
+                      <Text fontWeight="bold">Password</Text>
+                    </HStack>
+                    <Text color="gray.600" fontSize="sm">
+                      Change your account password
+                    </Text>
+                  </VStack>
+                  <Button
+                    onClick={onPasswordModalOpen}
+                    variant="outline"
+                  >
+                    Change Password
+                  </Button>
+                </HStack>
+              </Box>
+              
+              <Divider />
+              
+              {/* Account Deletion */}
+              <Box>
+                <HStack justify="space-between">
+                  <VStack align="start" spacing={1}>
+                    <HStack>
+                      <Icon as={FaTrash} />
+                      <Text fontWeight="bold">Delete Account</Text>
+                    </HStack>
+                    <Text color="gray.600" fontSize="sm">
+                      Permanently delete your account and all data
+                    </Text>
+                  </VStack>
+                  <Button
                     colorScheme="red"
                     variant="outline"
-                    size="md"
-                    width={{ base: "full", md: "auto" }}
+                    onClick={onDeleteModalOpen}
                   >
                     Delete Account
                   </Button>
-                </Box>
-              </Grid>
-            </CardBody>
-          </Card>
-        </Box>
-      </VStack>
-
-      {/* Password Change Modal */}
-      <Modal isOpen={isPasswordOpen} onClose={onPasswordClose} size="md">
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Change Password</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <VStack spacing={4}>
-              <FormControl>
-                <FormLabel>Current Password</FormLabel>
-                <Input
-                  type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="Enter your current password"
-                />
-              </FormControl>
-              <FormControl>
-                <FormLabel>New Password</FormLabel>
-                <Input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Enter new password"
-                />
-              </FormControl>
-              <FormControl>
-                <FormLabel>Confirm New Password</FormLabel>
-                <Input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm new password"
-                />
-              </FormControl>
+                </HStack>
+              </Box>
             </VStack>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={onPasswordClose}>
-              Cancel
-            </Button>
-            <Button colorScheme="blue" onClick={handlePasswordChange}>
-              Change Password
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-
-      {/* Account Deletion Modal */}
-      <Modal isOpen={isDeleteOpen} onClose={onDeleteClose} size="md">
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Delete Account</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <Alert status="warning" mb={4}>
-              <AlertIcon />
-              This action cannot be undone. All your data will be permanently deleted.
-            </Alert>
-            <FormControl>
-              <FormLabel>Enter your password to confirm</FormLabel>
-              <Input
-                type="password"
-                value={deletePassword}
-                onChange={(e) => setDeletePassword(e.target.value)}
-                placeholder="Enter your password"
-              />
-            </FormControl>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={onDeleteClose}>
-              Cancel
-            </Button>
-            <Button colorScheme="red" onClick={handleAccountDeletion}>
-              Delete Account
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+          </CardBody>
+        </Card>
+        
+        {/* Password Change Modal */}
+        <Modal isOpen={isPasswordModalOpen} onClose={onPasswordModalClose}>
+          <ModalOverlay />
+          <ModalContent>
+            <ModalHeader>Change Password</ModalHeader>
+            <ModalCloseButton />
+            <ModalBody>
+              <VStack spacing={4}>
+                <FormControl>
+                  <FormLabel>Current Password</FormLabel>
+                  <Input
+                    type="password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>New Password</FormLabel>
+                  <Input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Confirm New Password</FormLabel>
+                  <Input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                  />
+                </FormControl>
+              </VStack>
+            </ModalBody>
+            <ModalFooter>
+              <Button variant="ghost" mr={3} onClick={onPasswordModalClose}>
+                Cancel
+              </Button>
+              <Button
+                colorScheme="blue"
+                onClick={handlePasswordChange}
+                isLoading={isLoading}
+              >
+                Change Password
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+        
+        {/* Account Deletion Modal */}
+        <Modal isOpen={isDeleteModalOpen} onClose={onDeleteModalClose}>
+          <ModalOverlay />
+          <ModalContent>
+            <ModalHeader>Delete Account</ModalHeader>
+            <ModalCloseButton />
+            <ModalBody>
+              <Alert status="error" mb={4}>
+                <AlertIcon />
+                This action cannot be undone. All your data will be permanently deleted.
+              </Alert>
+              <FormControl>
+                <FormLabel>Enter your password to confirm</FormLabel>
+                <Input
+                  type="password"
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                />
+              </FormControl>
+            </ModalBody>
+            <ModalFooter>
+              <Button variant="ghost" mr={3} onClick={onDeleteModalClose}>
+                Cancel
+              </Button>
+              <Button
+                colorScheme="red"
+                onClick={handleAccountDeletion}
+                isLoading={isLoading}
+              >
+                Delete Account
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+      </VStack>
     </Box>
   );
 };
