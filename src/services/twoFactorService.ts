@@ -1,4 +1,4 @@
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { db, functions } from '../firebase/config';
 import { httpsCallable } from 'firebase/functions';
 import { generateToken } from '../utils/helpers';
@@ -178,13 +178,31 @@ export const sendEmail2FACode = async (userId: string, userEmail: string): Promi
       }
     }
 
-    // Store code and metadata in database
-    await updateDoc(userRef, {
+    // Prepare the update data
+    const updateData = {
       twofa_email_code: code,
       twofa_email_code_expires: expiresAt.toISOString(),
       twofa_email_code_attempts: newAttempts,
       twofa_email_sent_at: new Date().toISOString(),
-    });
+    };
+
+    // Store code and metadata in database - create document if it doesn't exist
+    if (!userDoc.exists()) {
+      // Create new user document with basic 2FA settings
+      await setDoc(userRef, {
+        email: userEmail,
+        twofa_enabled: false,
+        twofa_method: 'disabled',
+        twofa_backup_codes: [],
+        twofa_backup_email: null,
+        twofa_last_used: null,
+        createdAt: new Date().toISOString(),
+        ...updateData
+      });
+    } else {
+      // Update existing document
+      await updateDoc(userRef, updateData);
+    }
 
     // Determine which email to use
     const targetEmail = userData.twofa_backup_email || userEmail;
@@ -341,14 +359,15 @@ export const verifyBackupCode = async (userId: string, inputCode: string): Promi
 export const enableEmail2FA = async (userId: string, backupEmail?: string): Promise<{ success: boolean; backupCodes: string[] }> => {
   try {
     const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
     
     // Generate backup codes
     const backupCodes = generateBackupCodes(8);
 
-    // Update user document with 2FA settings
-    await updateDoc(userRef, {
+    // Prepare 2FA settings data
+    const twofaData = {
       twofa_enabled: true,
-      twofa_method: 'email',
+      twofa_method: 'email' as const,
       twofa_backup_email: backupEmail || null,
       twofa_backup_codes: backupCodes,
       twofa_setup_date: new Date().toISOString(),
@@ -356,7 +375,19 @@ export const enableEmail2FA = async (userId: string, backupEmail?: string): Prom
       twofa_email_code: null,
       twofa_email_code_expires: null,
       twofa_email_code_attempts: 0,
-    });
+    };
+
+    // Update or create user document with 2FA settings
+    if (!userDoc.exists()) {
+      // Create new user document with 2FA settings
+      await setDoc(userRef, {
+        createdAt: new Date().toISOString(),
+        ...twofaData
+      });
+    } else {
+      // Update existing document
+      await updateDoc(userRef, twofaData);
+    }
 
     // Dispatch custom events to notify components immediately
     window.dispatchEvent(new CustomEvent('2fa-enabled'));
@@ -377,10 +408,11 @@ export const enableEmail2FA = async (userId: string, backupEmail?: string): Prom
 export const disable2FA = async (userId: string): Promise<void> => {
   try {
     const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
     
-    await updateDoc(userRef, {
+    const disableData = {
       twofa_enabled: false,
-      twofa_method: 'disabled',
+      twofa_method: 'disabled' as const,
       twofa_backup_codes: [],
       twofa_backup_email: null,
       twofa_email_code: null,
@@ -388,7 +420,19 @@ export const disable2FA = async (userId: string): Promise<void> => {
       twofa_email_code_attempts: 0,
       twofa_email_sent_at: null,
       twofa_last_verified: null,
-    });
+    };
+
+    // Update or create user document
+    if (!userDoc.exists()) {
+      // Create new user document with 2FA disabled
+      await setDoc(userRef, {
+        createdAt: new Date().toISOString(),
+        ...disableData
+      });
+    } else {
+      // Update existing document
+      await updateDoc(userRef, disableData);
+    }
 
     // Clear any active verification session
     clear2FAVerified();
@@ -460,11 +504,24 @@ export const getBackupCodesCount = async (userId: string): Promise<number> => {
 export const regenerateBackupCodes = async (userId: string): Promise<string[]> => {
   try {
     const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
     const newBackupCodes = generateBackupCodes(8);
 
-    await updateDoc(userRef, {
-      twofa_backup_codes: newBackupCodes,
-    });
+    // Update or create user document
+    if (!userDoc.exists()) {
+      // Create new user document with backup codes
+      await setDoc(userRef, {
+        twofa_enabled: false,
+        twofa_method: 'disabled',
+        twofa_backup_codes: newBackupCodes,
+        createdAt: new Date().toISOString(),
+      });
+    } else {
+      // Update existing document
+      await updateDoc(userRef, {
+        twofa_backup_codes: newBackupCodes,
+      });
+    }
 
     return newBackupCodes;
   } catch (error) {

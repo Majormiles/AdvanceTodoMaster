@@ -64,6 +64,8 @@ const TaskForm: React.FC<TaskFormProps> = ({
   
   // Initialize form with existing data if editing
   useEffect(() => {
+    console.log('📝 TaskForm: Initializing with categories:', categories.length, categories);
+    
     if (initialData) {
       setTitle(initialData.title);
       setDescription(initialData.description || '');

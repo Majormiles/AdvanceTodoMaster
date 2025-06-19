@@ -68,8 +68,9 @@ import TaskForm from './TaskForm';
 import CategorySelector from './CategorySelector';
 import { Task, TaskStatus, TaskPriority, Category, TaskFilter } from '../../types/task';
 import { useAuth } from '../../contexts/AuthContext';
-import { getUserTasks, createTask, deleteTask } from '../../services/taskService';
-import { subscribeToCategories } from '../../services/categoryService';
+import { getUserTasks, createTask, deleteTask, updateTask } from '../../services/taskService';
+import { subscribeToCategories, initializeDefaultCategories } from '../../services/categoryService';
+import { ensureUserHasCategories, debugCategories } from '../../utils/categoryUtils';
 import { Timestamp } from 'firebase/firestore';
 import Carousel from '../ui/Carousel';
 import TaskListDrawer from './TaskListDrawer';
@@ -427,9 +428,22 @@ const TaskList: React.FC = () => {
         setTasks(fetchedTasks);
 
         // Subscribe to real-time category updates
-        const unsubscribe = subscribeToCategories(currentUser.uid, (updatedCategories) => {
-          setCategories(updatedCategories);
-          setIsLoading(false);
+        const unsubscribe = subscribeToCategories(currentUser.uid, async (updatedCategories) => {
+          console.log('📂 Categories loaded:', updatedCategories.length);
+          
+          // If no categories exist, initialize default categories
+          if (updatedCategories.length === 0) {
+            console.log('📂 No categories found, initializing default categories...');
+            try {
+              await initializeDefaultCategories(currentUser.uid);
+              console.log('📂 Default categories initialized successfully');
+            } catch (err) {
+              console.error('📂 Error initializing default categories:', err);
+            }
+          } else {
+            setCategories(updatedCategories);
+            setIsLoading(false);
+          }
         });
 
         // Return cleanup function
@@ -462,21 +476,35 @@ const TaskList: React.FC = () => {
   const handleUpdateTask = async (taskData: Omit<Task, 'id' | 'createdAt' | 'userId'>) => {
     if (!currentUser || !editingTask) return;
 
+    // Store original task state for rollback
+    const originalTask = editingTask;
+
     try {
-      const updatedTask = {
+      const updatedTaskData = {
         ...taskData,
         status: taskData.status,
-        completedAt: taskData.status === 'COMPLETED' ? Timestamp.fromDate(new Date()) : undefined
+        completedAt: taskData.status === 'COMPLETED' ? Timestamp.fromDate(new Date()) : undefined,
+        updatedAt: Timestamp.fromDate(new Date())
       };
-      const updatedTasks = tasks.map(t => ({
+
+      // Optimistic update - update UI immediately
+      const optimisticTasks = tasks.map(t => ({
         ...t,
-        ...(t.id === editingTask.id ? updatedTask : {})
+        ...(t.id === editingTask.id ? { ...t, ...updatedTaskData } : {})
       }));
-      setTasks(updatedTasks);
+      setTasks(optimisticTasks);
+
+      // Persist to database
+      await updateTask(currentUser.uid, editingTask.id, updatedTaskData);
+      
       setEditingTask(null);
     } catch (err: any) {
+      // Rollback on error - revert to original state
+      const rollbackTasks = tasks.map(t => t.id === editingTask.id ? originalTask : t);
+      setTasks(rollbackTasks);
+      
       console.error('Error updating task:', err);
-      setError('Failed to update task. Please try again.');
+      setError('Failed to update task. Changes have been reverted.');
       throw err;
     }
   };
@@ -496,21 +524,36 @@ const TaskList: React.FC = () => {
   const handleStatusChange = async (taskId: string, status: TaskStatus) => {
     if (!currentUser) return;
 
-    try {
-      const taskToUpdate = tasks.find(t => t.id === taskId);
-      if (!taskToUpdate) return;
+    // Store original task state for rollback
+    const originalTask = tasks.find(t => t.id === taskId);
+    if (!originalTask) return;
 
+    try {
+      // Optimistic update - update UI immediately
       const updatedTask = {
-        ...taskToUpdate,
+        ...originalTask,
         status,
-        completedAt: status === 'COMPLETED' ? Timestamp.fromDate(new Date()) : undefined
+        completedAt: status === 'COMPLETED' ? Timestamp.fromDate(new Date()) : undefined,
+        updatedAt: Timestamp.fromDate(new Date())
       };
 
-      const updatedTasks = tasks.map(t => t.id === taskId ? updatedTask : t);
-      setTasks(updatedTasks);
+      const optimisticTasks = tasks.map(t => t.id === taskId ? updatedTask : t);
+      setTasks(optimisticTasks);
+
+      // Persist to database
+      await updateTask(currentUser.uid, taskId, {
+        status,
+        completedAt: status === 'COMPLETED' ? Timestamp.fromDate(new Date()) : undefined,
+        updatedAt: Timestamp.fromDate(new Date())
+      });
+      
     } catch (err: any) {
+      // Rollback on error - revert to original state
+      const rollbackTasks = tasks.map(t => t.id === taskId ? originalTask : t);
+      setTasks(rollbackTasks);
+      
       console.error('Error updating task status:', err);
-      setError('Failed to update task status. Please try again.');
+      setError('Failed to update task status. Changes have been reverted.');
     }
   };
 
@@ -645,6 +688,24 @@ const TaskList: React.FC = () => {
               >
                 Add Task
               </Button>
+              
+              {/* Debug Categories Button - Remove in production */}
+              {process.env.NODE_ENV === 'development' && (
+                <Button
+                  size={{ base: "sm", md: "md" }}
+                  variant="outline"
+                  onClick={async () => {
+                    if (currentUser) {
+                      console.log('🐛 Debug: Manual category check triggered');
+                      await debugCategories(currentUser.uid);
+                      const categories = await ensureUserHasCategories(currentUser.uid);
+                      setCategories(categories);
+                    }
+                  }}
+                >
+                  🐛 Fix Categories
+                </Button>
+              )}
             </ButtonGroup>
           </Flex>
 
