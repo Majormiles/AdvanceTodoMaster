@@ -41,6 +41,7 @@ import {
   Th,
   Td,
   useColorModeValue,
+  Tooltip,
 } from '@chakra-ui/react';
 import {
   FaPlus,
@@ -55,6 +56,8 @@ import {
   FaEdit,
   FaTrash,
   FaShare,
+  FaChartPie,
+  FaTags,
 } from 'react-icons/fa';
 import {
   Chart as ChartJS,
@@ -92,6 +95,17 @@ interface ChartData {
 
 const TaskChart: React.FC<{ tasks: Task[], categories: Category[] }> = ({ tasks, categories }) => {
   const [chartType, setChartType] = useState<'status' | 'priority' | 'category'>('status');
+  const [isVisible, setIsVisible] = useState(false);
+  const cardBg = useColorModeValue('white', 'gray.800');
+  const borderColor = useColorModeValue('gray.200', 'gray.700');
+  const gradientBg = useColorModeValue(
+    'linear(to-br, blue.50, purple.50, pink.50)',
+    'linear(to-br, gray.900, blue.900, purple.900)'
+  );
+
+  React.useEffect(() => {
+    setIsVisible(true);
+  }, []);
 
   const getChartData = (): ChartData => {
     switch (chartType) {
@@ -101,21 +115,35 @@ const TaskChart: React.FC<{ tasks: Task[], categories: Category[] }> = ({ tasks,
           return acc;
         }, {} as Record<string, number>);
 
+        const statusOrder = ['TODO', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
+        const statusLabels = ['To Do', 'In Progress', 'Completed', 'Cancelled'];
+        const statusColors = [
+          'rgba(99, 102, 241, 0.8)',   // TODO - Indigo
+          'rgba(59, 130, 246, 0.8)',   // IN_PROGRESS - Blue
+          'rgba(34, 197, 94, 0.8)',    // COMPLETED - Green
+          'rgba(239, 68, 68, 0.8)',    // CANCELLED - Red
+        ];
+        const statusBorderColors = [
+          'rgba(99, 102, 241, 1)',
+          'rgba(59, 130, 246, 1)',
+          'rgba(34, 197, 94, 1)',
+          'rgba(239, 68, 68, 1)',
+        ];
+
+        const orderedData = statusOrder.map(status => statusCounts[status] || 0).filter(count => count > 0);
+        const orderedLabels = statusOrder.filter(status => statusCounts[status] > 0).map((status, index) => statusLabels[statusOrder.indexOf(status)]);
+        const orderedColors = statusOrder.filter(status => statusCounts[status] > 0).map((status, index) => statusColors[statusOrder.indexOf(status)]);
+        const orderedBorderColors = statusOrder.filter(status => statusCounts[status] > 0).map((status, index) => statusBorderColors[statusOrder.indexOf(status)]);
+
         return {
-          labels: Object.keys(statusCounts),
+          labels: orderedLabels,
           datasets: [{
-            data: Object.values(statusCounts),
-            backgroundColor: [
-              'rgba(54, 162, 235, 0.6)',  // TODO
-              'rgba(75, 192, 192, 0.6)',  // IN_PROGRESS
-              'rgba(255, 99, 132, 0.6)',  // COMPLETED
-            ],
-            borderColor: [
-              'rgba(54, 162, 235, 1)',
-              'rgba(75, 192, 192, 1)',
-              'rgba(255, 99, 132, 1)',
-            ],
-            borderWidth: 1,
+            data: orderedData,
+            backgroundColor: orderedColors,
+            borderColor: orderedBorderColors,
+            borderWidth: 2,
+            hoverBackgroundColor: orderedColors.map(color => color.replace('0.8', '0.9')),
+            hoverBorderWidth: 3,
           }],
         };
       }
@@ -125,21 +153,34 @@ const TaskChart: React.FC<{ tasks: Task[], categories: Category[] }> = ({ tasks,
           return acc;
         }, {} as Record<string, number>);
 
+        const priorityOrder = ['URGENT', 'HIGH', 'MEDIUM', 'LOW'];
+        const priorityColors = [
+          'rgba(239, 68, 68, 0.8)',    // URGENT - Red
+          'rgba(245, 158, 11, 0.8)',   // HIGH - Amber
+          'rgba(59, 130, 246, 0.8)',   // MEDIUM - Blue
+          'rgba(34, 197, 94, 0.8)',    // LOW - Green
+        ];
+        const priorityBorderColors = [
+          'rgba(239, 68, 68, 1)',
+          'rgba(245, 158, 11, 1)',
+          'rgba(59, 130, 246, 1)',
+          'rgba(34, 197, 94, 1)',
+        ];
+
+        const orderedData = priorityOrder.map(priority => priorityCounts[priority] || 0).filter(count => count > 0);
+        const orderedLabels = priorityOrder.filter(priority => priorityCounts[priority] > 0);
+        const orderedColors = priorityOrder.filter(priority => priorityCounts[priority] > 0).map((priority, index) => priorityColors[priorityOrder.indexOf(priority)]);
+        const orderedBorderColors = priorityOrder.filter(priority => priorityCounts[priority] > 0).map((priority, index) => priorityBorderColors[priorityOrder.indexOf(priority)]);
+
         return {
-          labels: Object.keys(priorityCounts),
+          labels: orderedLabels,
           datasets: [{
-            data: Object.values(priorityCounts),
-            backgroundColor: [
-              'rgba(255, 99, 132, 0.6)',  // HIGH
-              'rgba(255, 159, 64, 0.6)',  // MEDIUM
-              'rgba(75, 192, 192, 0.6)',  // LOW
-            ],
-            borderColor: [
-              'rgba(255, 99, 132, 1)',
-              'rgba(255, 159, 64, 1)',
-              'rgba(75, 192, 192, 1)',
-            ],
-            borderWidth: 1,
+            data: orderedData,
+            backgroundColor: orderedColors,
+            borderColor: orderedBorderColors,
+            borderWidth: 2,
+            hoverBackgroundColor: orderedColors.map(color => color.replace('0.8', '0.9')),
+            hoverBorderWidth: 3,
           }],
         };
       }
@@ -150,17 +191,32 @@ const TaskChart: React.FC<{ tasks: Task[], categories: Category[] }> = ({ tasks,
           return acc;
         }, {} as Record<string, number>);
 
+        const colors = [
+          'rgba(99, 102, 241, 0.8)',   // Indigo
+          'rgba(236, 72, 153, 0.8)',   // Pink
+          'rgba(34, 197, 94, 0.8)',    // Green
+          'rgba(245, 158, 11, 0.8)',   // Amber
+          'rgba(139, 92, 246, 0.8)',   // Violet
+          'rgba(6, 182, 212, 0.8)',    // Cyan
+          'rgba(239, 68, 68, 0.8)',    // Red
+          'rgba(168, 85, 247, 0.8)',   // Purple
+        ];
+
+        const labels = Object.keys(categoryCounts);
+        const data = Object.values(categoryCounts);
+        const backgroundColor = colors.slice(0, labels.length);
+        const borderColor = backgroundColor.map(color => color.replace('0.8', '1'));
+        const hoverBackgroundColor = backgroundColor.map(color => color.replace('0.8', '0.9'));
+
         return {
-          labels: Object.keys(categoryCounts),
+          labels,
           datasets: [{
-            data: Object.values(categoryCounts),
-            backgroundColor: Array(Object.keys(categoryCounts).length)
-              .fill('')
-              .map((_, i) => `hsla(${(i * 360) / Object.keys(categoryCounts).length}, 70%, 50%, 0.6)`),
-            borderColor: Array(Object.keys(categoryCounts).length)
-              .fill('')
-              .map((_, i) => `hsla(${(i * 360) / Object.keys(categoryCounts).length}, 70%, 50%, 1)`),
-            borderWidth: 1,
+            data,
+            backgroundColor,
+            borderColor,
+            borderWidth: 2,
+            hoverBackgroundColor,
+            hoverBorderWidth: 3,
           }],
         };
       }
@@ -177,210 +233,302 @@ const TaskChart: React.FC<{ tasks: Task[], categories: Category[] }> = ({ tasks,
     }
   };
 
+  const getStatsCards = () => {
+    const data = getChartData();
+    return data.labels.map((label, index) => ({
+      label,
+      value: data.datasets[0].data[index] as number,
+      color: data.datasets[0].backgroundColor[index],
+      percentage: ((data.datasets[0].data[index] as number) / data.datasets[0].data.reduce((a, b) => a + b, 0) * 100).toFixed(1)
+    }));
+  };
+
+  const chartOptions = {
+    maintainAspectRatio: true,
+    aspectRatio: 1,
+    responsive: true,
+    layout: {
+      padding: 5
+    },
+    plugins: {
+      legend: {
+        display: false, // We'll use custom cards instead
+      },
+      tooltip: {
+        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+        titleColor: '#f8fafc',
+        bodyColor: '#e2e8f0',
+        borderColor: 'rgba(148, 163, 184, 0.3)',
+        borderWidth: 2,
+        cornerRadius: 16,
+        displayColors: true,
+        padding: 16,
+        titleFont: { size: 14, weight: 'bold' },
+        bodyFont: { size: 13 },
+        callbacks: {
+          label: function (context: TooltipItem<"pie">) {
+            const label = context.label || '';
+            const value = context.raw as number;
+            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+            const percentage = ((value / total) * 100).toFixed(1);
+            return `${label}: ${value} tasks (${percentage}%)`;
+          }
+        }
+      }
+    },
+    hover: {
+      mode: 'nearest' as const,
+      intersect: true,
+    },
+    animation: {
+      animateRotate: true,
+      animateScale: true,
+      duration: 1500,
+      easing: 'easeInOutQuart' as const,
+    },
+    elements: {
+      arc: {
+        borderWidth: 1,
+        hoverBorderWidth: 2,
+        spacing: 0,
+      }
+    },
+    interaction: {
+      intersect: false,
+      mode: 'point' as const
+    }
+  };
+
   return (
-    <Card mb={6}>
-      <CardHeader>
-        <Heading size="md">Task Analytics</Heading>
-      </CardHeader>
-      <CardBody>
-        <Tabs onChange={(index) => setChartType((['status', 'priority', 'category'][index] as 'status' | 'priority' | 'category'))}>
-          <TabList>
-            <Tab>By Status</Tab>
-            <Tab>By Priority</Tab>
-            <Tab>By Category</Tab>
-          </TabList>
-          <TabPanels>
-            <TabPanel>
-              <Box height="300px">
-                <Pie
-                  data={getChartData()}
-                  options={{
-                    maintainAspectRatio: false,
-                    responsive: true,
-                    plugins: {
-                      legend: {
-                        position: 'bottom',
-                        labels: {
-                          padding: 20,
-                          usePointStyle: true,
-                          font: {
-                            size: 12
-                          }
-                        }
-                      },
-                      tooltip: {
-                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                        titleColor: '#f8fafc',
-                        bodyColor: '#e2e8f0',
-                        borderColor: 'rgba(148, 163, 184, 0.2)',
-                        borderWidth: 1,
-                        cornerRadius: 12,
-                        displayColors: true,
-                        padding: 12,
-                        titleFont: { size: 14 },
-                        bodyFont: { size: 13 },
-                        callbacks: {
-                          label: function (context: TooltipItem<"pie">) {
-                            const label = context.label || '';
-                            const value = context.raw as number;
-                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            const percentage = ((value / total) * 100).toFixed(1);
-                            return `${label}: ${value} (${percentage}%)`;
-                          }
-                        }
-                      }
-                    },
-                    hover: {
-                      mode: 'nearest',
-                      intersect: true,
-                    },
-                    animation: {
-                      animateRotate: true,
-                      animateScale: true,
-                      duration: 1200
-                    },
-                    elements: {
-                      arc: {
-                        borderWidth: 0,
-                        hoverBorderWidth: 0,
-                        spacing: 2,
-                      }
-                    },
-                    interaction: {
-                      intersect: false,
-                      mode: 'point'
-                    }
-                  }}
-                />
-              </Box>
-            </TabPanel>
-            <TabPanel>
-              <Box height="300px">
-                <Pie
-                  data={getChartData()}
-                  options={{
-                    maintainAspectRatio: false,
-                    responsive: true,
-                    plugins: {
-                      legend: {
-                        position: 'bottom',
-                        labels: {
-                          padding: 20,
-                          usePointStyle: true,
-                        }
-                      },
-                      tooltip: {
-                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                        titleColor: '#fff',
-                        bodyColor: '#fff',
-                        borderColor: '#333',
-                        borderWidth: 1,
-                        cornerRadius: 8,
-                        displayColors: true,
-                        padding: 12,
-                        titleFont: { size: 14 },
-                        bodyFont: { size: 13 },
-                        callbacks: {
-                          label: function (context: TooltipItem<"pie">) {
-                            const label = context.label || '';
-                            const value = context.raw as number;
-                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            const percentage = ((value / total) * 100).toFixed(1);
-                            return `${label}: ${value} (${percentage}%)`;
-                          }
-                        }
-                      }
-                    },
-                    hover: {
-                      mode: 'nearest',
-                      intersect: true,
-                    },
-                    animation: {
-                      animateRotate: true,
-                      animateScale: true,
-                      duration: 1000,
-                    },
-                    elements: {
-                      arc: {
-                        borderWidth: 2,
-                        borderColor: '#fff',
-                        hoverBorderWidth: 5,
-                        hoverBorderColor: '#333',
-                      }
-                    },
-                    interaction: {
-                      intersect: false,
-                      mode: 'index'
-                    }
-                  }}
-                />
-              </Box>
-            </TabPanel>
-            <TabPanel>
-              <Box height="300px">
-                <Pie
-                  data={getChartData()}
-                  options={{
-                    maintainAspectRatio: false,
-                    responsive: true,
-                    plugins: {
-                      legend: {
-                        position: 'bottom',
-                        labels: {
-                          padding: 20,
-                          usePointStyle: true,
-                        }
-                      },
-                      tooltip: {
-                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                        titleColor: '#fff',
-                        bodyColor: '#fff',
-                        borderColor: '#333',
-                        borderWidth: 1,
-                        cornerRadius: 8,
-                        displayColors: true,
-                        padding: 12,
-                        titleFont: { size: 14 },
-                        bodyFont: { size: 13 },
-                        callbacks: {
-                          label: function (context: TooltipItem<"pie">) {
-                            const label = context.label || '';
-                            const value = context.raw as number;
-                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            const percentage = ((value / total) * 100).toFixed(1);
-                            return `${label}: ${value} (${percentage}%)`;
-                          }
-                        }
-                      }
-                    },
-                    hover: {
-                      mode: 'nearest',
-                      intersect: true,
-                    },
-                    animation: {
-                      animateRotate: true,
-                      animateScale: true,
-                      duration: 1000,
-                    },
-                    elements: {
-                      arc: {
-                        borderWidth: 2,
-                        borderColor: '#fff',
-                        hoverBorderWidth: 5,
-                        hoverBorderColor: '#333',
-                      }
-                    },
-                    interaction: {
-                      intersect: false,
-                      mode: 'index'
-                    }
-                  }}
-                />
-              </Box>
-            </TabPanel>
-          </TabPanels>
-        </Tabs>
-      </CardBody>
+    <Card 
+      mb={6} 
+      bg={cardBg} 
+      borderColor={borderColor}
+      shadow="xl"
+      borderRadius="2xl"
+      overflow="hidden"
+      transform={isVisible ? "translateY(0)" : "translateY(20px)"}
+      opacity={isVisible ? 1 : 0}
+      transition="all 0.6s ease-out"
+    >
+      <Box bgGradient={gradientBg} p={1}>
+        <Box bg={cardBg} borderRadius="xl">
+          <CardHeader pb={4}>
+            <Flex justify="space-between" align="center" flexWrap="wrap" gap={4}>
+              <VStack align="start" spacing={1}>
+                <HStack>
+                  <Box 
+                    w={4} 
+                    h={4} 
+                    bg="linear-gradient(45deg, #667eea 0%, #764ba2 100%)" 
+                    borderRadius="md"
+                    transform={isVisible ? "rotate(0deg)" : "rotate(-180deg)"}
+                    transition="transform 0.8s ease-out"
+                  />
+                  <Heading 
+                    size="lg" 
+                    bgGradient="linear(to-r, blue.600, purple.600)" 
+                    bgClip="text"
+                    fontWeight="bold"
+                  >
+                    Task Analytics
+                  </Heading>
+                </HStack>
+                <Text fontSize="sm" color="gray.600">
+                  Visual insights into your task distribution
+                </Text>
+              </VStack>
+              
+              <ButtonGroup 
+                size="sm" 
+                isAttached 
+                variant="outline"
+                transform={isVisible ? "scale(1)" : "scale(0.8)"}
+                transition="transform 0.5s ease-out 0.3s"
+              >
+                <Button
+                  onClick={() => setChartType('status')}
+                  colorScheme={chartType === 'status' ? 'blue' : 'gray'}
+                  variant={chartType === 'status' ? 'solid' : 'outline'}
+                  leftIcon={<FaChartPie />}
+                  _hover={{ transform: "translateY(-1px)" }}
+                  transition="all 0.2s"
+                >
+                  Status
+                </Button>
+                <Button
+                  onClick={() => setChartType('priority')}
+                  colorScheme={chartType === 'priority' ? 'orange' : 'gray'}
+                  variant={chartType === 'priority' ? 'solid' : 'outline'}
+                  leftIcon={<FaExclamationTriangle />}
+                  _hover={{ transform: "translateY(-1px)" }}
+                  transition="all 0.2s"
+                >
+                  Priority
+                </Button>
+                <Button
+                  onClick={() => setChartType('category')}
+                  colorScheme={chartType === 'category' ? 'purple' : 'gray'}
+                  variant={chartType === 'category' ? 'solid' : 'outline'}
+                  leftIcon={<FaTags />}
+                  _hover={{ transform: "translateY(-1px)" }}
+                  transition="all 0.2s"
+                >
+                  Category
+                </Button>
+              </ButtonGroup>
+            </Flex>
+          </CardHeader>
+          
+          <CardBody pt={0} px={4}>
+            {tasks.length > 0 ? (
+              <Grid 
+                templateColumns={{ base: "1fr", lg: "400px 1fr" }} 
+                gap={{ base: 6, lg: 4 }} 
+                alignItems="start"
+                minH={{ base: "auto", lg: "400px" }}
+              >
+                {/* Chart Section */}
+                <Box 
+                  position="relative"
+                  transform={isVisible ? "scale(1)" : "scale(0.9)"}
+                  transition="transform 0.6s ease-out 0.2s"
+                  display="flex"
+                  flexDirection="column"
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  <Box 
+                    width={{ base: "300px", lg: "350px" }}
+                    height={{ base: "300px", lg: "350px" }}
+                    position="relative"
+                    borderRadius="xl"
+                    bg={useColorModeValue('gray.50', 'gray.750')}
+                    p={3}
+                    _hover={{ shadow: "lg" }}
+                    transition="box-shadow 0.3s ease"
+                    display="flex"
+                    alignItems="center"
+                    justifyContent="center"
+                    mx="auto"
+                  >
+                    <Box width={{ base: "250px", lg: "300px" }} height={{ base: "250px", lg: "300px" }}>
+                      <Pie data={getChartData()} options={chartOptions} />
+                    </Box>
+                  </Box>
+                </Box>
+
+                {/* Stats Cards */}
+                <VStack spacing={3} align="stretch" pl={{ base: 0, lg: 2 }}>
+                  <Text 
+                    fontWeight="bold" 
+                    fontSize="lg" 
+                    color="gray.700"
+                    mb={3}
+                    textAlign="left"
+                  >
+                    Distribution
+                  </Text>
+                  {getStatsCards().map((stat, index) => (
+                    <Box
+                      key={stat.label}
+                      p={3}
+                      borderRadius="lg"
+                      bg={useColorModeValue('white', 'gray.700')}
+                      border="1px solid"
+                      borderColor={useColorModeValue('gray.200', 'gray.600')}
+                      _hover={{ 
+                        transform: "translateY(-2px)", 
+                        shadow: "lg",
+                        borderColor: stat.color.replace('0.8', '1')
+                      }}
+                      transition="all 0.3s ease"
+                      cursor="pointer"
+                      transform={isVisible ? "translateX(0)" : "translateX(20px)"}
+                      opacity={isVisible ? 1 : 0}
+                      style={{
+                        transitionDelay: `${0.4 + index * 0.1}s`
+                      }}
+                    >
+                      <Flex align="center" justify="space-between">
+                        <HStack spacing={3}>
+                          <Box
+                            w={3}
+                            h={3}
+                            borderRadius="full"
+                            bg={stat.color}
+                            boxShadow="sm"
+                          />
+                          <VStack align="start" spacing={0}>
+                            <Text fontWeight="semibold" fontSize="sm">
+                              {stat.label}
+                            </Text>
+                            <Text fontSize="xs" color="gray.500">
+                              {stat.percentage}% of total
+                            </Text>
+                          </VStack>
+                        </HStack>
+                        <VStack align="end" spacing={0}>
+                          <Text 
+                            fontWeight="bold" 
+                            fontSize="md"
+                            color={stat.color.replace('0.8', '1').replace('rgba', '').replace(')', '').split(',').slice(0,3).join(',').replace('(', 'rgb(')}
+                          >
+                            {stat.value}
+                          </Text>
+                          <Text fontSize="xs" color="gray.500">
+                            task{stat.value !== 1 ? 's' : ''}
+                          </Text>
+                        </VStack>
+                      </Flex>
+                    </Box>
+                  ))}
+                  
+                  {/* Summary Card */}
+                  <Box
+                    mt={3}
+                    p={4}
+                    borderRadius="lg"
+                    bgGradient="linear(to-r, blue.500, purple.600)"
+                    color="white"
+                    _hover={{ transform: "translateY(-2px)", shadow: "xl" }}
+                    transition="all 0.3s ease"
+                    transform={isVisible ? "scale(1)" : "scale(0.95)"}
+                    style={{
+                      transitionDelay: `${0.4 + getStatsCards().length * 0.1 + 0.2}s`
+                    }}
+                  >
+                    <VStack spacing={2}>
+                      <HStack>
+                        <Box as={FaTasks} />
+                        <Text fontWeight="bold" fontSize="sm">Total Tasks</Text>
+                      </HStack>
+                      <Text fontSize="xl" fontWeight="bold">
+                        {tasks.length}
+                      </Text>
+                      <Text fontSize="xs" opacity={0.9}>
+                        {tasks.filter(t => t.status === 'COMPLETED').length} completed
+                      </Text>
+                    </VStack>
+                  </Box>
+                </VStack>
+              </Grid>
+            ) : (
+              <Center py={12}>
+                <VStack spacing={4}>
+                  <Box as={FaChartPie} size="48px" color="gray.400" />
+                  <Text color="gray.500" textAlign="center" fontSize="lg">
+                    No tasks to display
+                  </Text>
+                  <Text color="gray.400" textAlign="center" fontSize="sm">
+                    Create your first task to see analytics
+                  </Text>
+                </VStack>
+              </Center>
+            )}
+          </CardBody>
+        </Box>
+      </Box>
     </Card>
   );
 };
@@ -774,77 +922,237 @@ const TaskList: React.FC = () => {
           <Grid templateColumns={{ base: "repeat(2, 1fr)", lg: "repeat(2, 1fr)" }} gap={{ base: 3, md: 6 }}>
             <Card 
               size={{ base: "sm", md: "md" }} 
-              bg={bgColor}
+              bg={cardBg}
               onClick={() => setSelectedCardType('total')}
               cursor="pointer"
-              transition="all 0.2s"
-              _hover={{ transform: 'translateY(-2px)', shadow: 'md' }}
+              transition="all 0.3s ease"
+              _hover={{ 
+                transform: 'translateY(-4px) scale(1.02)', 
+                shadow: 'xl',
+                borderColor: 'blue.400'
+              }}
               role="button"
               aria-label="View all tasks"
+              borderRadius="xl"
+              borderWidth="2px"
+              borderColor="transparent"
+              position="relative"
+              overflow="hidden"
             >
-              <CardBody textAlign="center" py={{ base: 3, md: 6 }}>
-                <Icon as={FaTasks} boxSize={{ base: 6, md: 8 }} color="blue.500" mb={{ base: 2, md: 3 }} />
-                <Stat>
-                  <StatNumber fontSize={{ base: "lg", md: "2xl" }}>{taskStats.total}</StatNumber>
-                  <StatLabel fontSize={{ base: "xs", md: "sm" }}>Total Tasks</StatLabel>
-                </Stat>
+              <Box
+                position="absolute"
+                top="0"
+                left="0"
+                right="0"
+                height="4px"
+                bgGradient="linear(to-r, blue.400, blue.600)"
+              />
+              <CardBody textAlign="center" py={{ base: 4, md: 6 }} px={{ base: 3, md: 6 }}>
+                <VStack spacing={{ base: 2, md: 3 }}>
+                  <Box
+                    p={3}
+                    borderRadius="full"
+                    bg={useColorModeValue('blue.50', 'blue.900')}
+                    transition="all 0.3s ease"
+                    _groupHover={{ transform: 'rotate(10deg) scale(1.1)' }}
+                  >
+                    <Icon as={FaTasks} boxSize={{ base: 6, md: 8 }} color="blue.500" />
+                  </Box>
+                  <Stat>
+                    <StatNumber 
+                      fontSize={{ base: "xl", md: "3xl" }} 
+                      fontWeight="bold"
+                      color="blue.600"
+                      mb={1}
+                    >
+                      {taskStats.total}
+                    </StatNumber>
+                    <StatLabel 
+                      fontSize={{ base: "sm", md: "md" }}
+                      color={useColorModeValue('gray.600', 'gray.400')}
+                      fontWeight="medium"
+                    >
+                      Total Tasks
+                    </StatLabel>
+                  </Stat>
+                </VStack>
               </CardBody>
             </Card>
 
             <Card 
               size={{ base: "sm", md: "md" }} 
-              bg={bgColor}
+              bg={cardBg}
               onClick={() => setSelectedCardType('inProgress')}
               cursor="pointer"
-              transition="all 0.2s"
-              _hover={{ transform: 'translateY(-2px)', shadow: 'md' }}
+              transition="all 0.3s ease"
+              _hover={{ 
+                transform: 'translateY(-4px) scale(1.02)', 
+                shadow: 'xl',
+                borderColor: 'orange.400'
+              }}
               role="button"
               aria-label="View in-progress tasks"
+              borderRadius="xl"
+              borderWidth="2px"
+              borderColor="transparent"
+              position="relative"
+              overflow="hidden"
             >
-              <CardBody textAlign="center" py={{ base: 3, md: 6 }}>
-                <Icon as={FaClock} boxSize={{ base: 6, md: 8 }} color="orange.500" mb={{ base: 2, md: 3 }} />
-                <Stat>
-                  <StatNumber fontSize={{ base: "lg", md: "2xl" }}>{taskStats.inProgress}</StatNumber>
-                  <StatLabel fontSize={{ base: "xs", md: "sm" }}>In Progress</StatLabel>
-                </Stat>
+              <Box
+                position="absolute"
+                top="0"
+                left="0"
+                right="0"
+                height="4px"
+                bgGradient="linear(to-r, orange.400, orange.600)"
+              />
+              <CardBody textAlign="center" py={{ base: 4, md: 6 }} px={{ base: 3, md: 6 }}>
+                <VStack spacing={{ base: 2, md: 3 }}>
+                  <Box
+                    p={3}
+                    borderRadius="full"
+                    bg={useColorModeValue('orange.50', 'orange.900')}
+                    transition="all 0.3s ease"
+                    _groupHover={{ transform: 'rotate(10deg) scale(1.1)' }}
+                  >
+                    <Icon as={FaClock} boxSize={{ base: 6, md: 8 }} color="orange.500" />
+                  </Box>
+                  <Stat>
+                    <StatNumber 
+                      fontSize={{ base: "xl", md: "3xl" }} 
+                      fontWeight="bold"
+                      color="orange.600"
+                      mb={1}
+                    >
+                      {taskStats.inProgress}
+                    </StatNumber>
+                    <StatLabel 
+                      fontSize={{ base: "sm", md: "md" }}
+                      color={useColorModeValue('gray.600', 'gray.400')}
+                      fontWeight="medium"
+                    >
+                      In Progress
+                    </StatLabel>
+                  </Stat>
+                </VStack>
               </CardBody>
             </Card>
 
             <Card 
               size={{ base: "sm", md: "md" }} 
-              bg={bgColor}
+              bg={cardBg}
               onClick={() => setSelectedCardType('completed')}
               cursor="pointer"
-              transition="all 0.2s"
-              _hover={{ transform: 'translateY(-2px)', shadow: 'md' }}
+              transition="all 0.3s ease"
+              _hover={{ 
+                transform: 'translateY(-4px) scale(1.02)', 
+                shadow: 'xl',
+                borderColor: 'green.400'
+              }}
               role="button"
               aria-label="View completed tasks"
+              borderRadius="xl"
+              borderWidth="2px"
+              borderColor="transparent"
+              position="relative"
+              overflow="hidden"
             >
-              <CardBody textAlign="center" py={{ base: 3, md: 6 }}>
-                <Icon as={FaCheckCircle} boxSize={{ base: 6, md: 8 }} color="green.500" mb={{ base: 2, md: 3 }} />
-                <Stat>
-                  <StatNumber fontSize={{ base: "lg", md: "2xl" }}>{completionRate}%</StatNumber>
-                  <StatLabel fontSize={{ base: "xs", md: "sm" }}>Completion Rate</StatLabel>
-                </Stat>
+              <Box
+                position="absolute"
+                top="0"
+                left="0"
+                right="0"
+                height="4px"
+                bgGradient="linear(to-r, green.400, green.600)"
+              />
+              <CardBody textAlign="center" py={{ base: 4, md: 6 }} px={{ base: 3, md: 6 }}>
+                <VStack spacing={{ base: 2, md: 3 }}>
+                  <Box
+                    p={3}
+                    borderRadius="full"
+                    bg={useColorModeValue('green.50', 'green.900')}
+                    transition="all 0.3s ease"
+                    _groupHover={{ transform: 'rotate(10deg) scale(1.1)' }}
+                  >
+                    <Icon as={FaCheckCircle} boxSize={{ base: 6, md: 8 }} color="green.500" />
+                  </Box>
+                  <Stat>
+                    <StatNumber 
+                      fontSize={{ base: "xl", md: "3xl" }} 
+                      fontWeight="bold"
+                      color="green.600"
+                      mb={1}
+                    >
+                      {completionRate}%
+                    </StatNumber>
+                    <StatLabel 
+                      fontSize={{ base: "sm", md: "md" }}
+                      color={useColorModeValue('gray.600', 'gray.400')}
+                      fontWeight="medium"
+                    >
+                      Completion Rate
+                    </StatLabel>
+                  </Stat>
+                </VStack>
               </CardBody>
             </Card>
 
             <Card 
               size={{ base: "sm", md: "md" }} 
-              bg={bgColor}
+              bg={cardBg}
               onClick={() => setSelectedCardType('urgent')}
               cursor="pointer"
-              transition="all 0.2s"
-              _hover={{ transform: 'translateY(-2px)', shadow: 'md' }}
+              transition="all 0.3s ease"
+              _hover={{ 
+                transform: 'translateY(-4px) scale(1.02)', 
+                shadow: 'xl',
+                borderColor: 'red.400'
+              }}
               role="button"
               aria-label="View urgent tasks"
+              borderRadius="xl"
+              borderWidth="2px"
+              borderColor="transparent"
+              position="relative"
+              overflow="hidden"
             >
-              <CardBody textAlign="center" py={{ base: 3, md: 6 }}>
-                <Icon as={FaExclamationTriangle} boxSize={{ base: 6, md: 8 }} color="red.500" mb={{ base: 2, md: 3 }} />
-                <Stat>
-                  <StatNumber fontSize={{ base: "lg", md: "2xl" }}>{taskStats.urgent}</StatNumber>
-                  <StatLabel fontSize={{ base: "xs", md: "sm" }}>Urgent Tasks</StatLabel>
-                </Stat>
+              <Box
+                position="absolute"
+                top="0"
+                left="0"
+                right="0"
+                height="4px"
+                bgGradient="linear(to-r, red.400, red.600)"
+              />
+              <CardBody textAlign="center" py={{ base: 4, md: 6 }} px={{ base: 3, md: 6 }}>
+                <VStack spacing={{ base: 2, md: 3 }}>
+                  <Box
+                    p={3}
+                    borderRadius="full"
+                    bg={useColorModeValue('red.50', 'red.900')}
+                    transition="all 0.3s ease"
+                    _groupHover={{ transform: 'rotate(10deg) scale(1.1)' }}
+                  >
+                    <Icon as={FaExclamationTriangle} boxSize={{ base: 6, md: 8 }} color="red.500" />
+                  </Box>
+                  <Stat>
+                    <StatNumber 
+                      fontSize={{ base: "xl", md: "3xl" }} 
+                      fontWeight="bold"
+                      color="red.600"
+                      mb={1}
+                    >
+                      {taskStats.urgent}
+                    </StatNumber>
+                    <StatLabel 
+                      fontSize={{ base: "sm", md: "md" }}
+                      color={useColorModeValue('gray.600', 'gray.400')}
+                      fontWeight="medium"
+                    >
+                      Urgent Tasks
+                    </StatLabel>
+                  </Stat>
+                </VStack>
               </CardBody>
             </Card>
           </Grid>
@@ -981,72 +1289,292 @@ const TaskList: React.FC = () => {
 
         {/* Task List */}
         {filteredTasks.length === 0 ? (
-          <Box textAlign="center" py={12} bg={bgColor} rounded="md" shadow="sm">
-            <Icon as={FaTasks} boxSize={16} color={secondaryTextColor} mb={4} />
-            <Heading size="md" mb={2} color={secondaryTextColor}>No tasks found</Heading>
-            <Text color={secondaryTextColor} mb={6}>
-              {tasks.length === 0
-                ? 'Get started by creating your first task'
-                : 'Try adjusting your filters to see more tasks'}
-            </Text>
-            {tasks.length === 0 && (
-              <Button
-                leftIcon={<Icon as={FaPlus} />}
-                colorScheme="blue"
-                onClick={handleOpenNewTaskModal}
-              >
-                Create Your First Task
-              </Button>
-            )}
-          </Box>
-        ) : (
-          <Box bg={tableBg} rounded="md" shadow="sm">
-            <Table variant="simple">
-              <Thead display={{ base: 'none', md: 'table-header-group' }}>
-                <Tr>
-                  <Th width="40px" px={4}></Th>
-                  <Th>Task</Th>
-                  <Th width={{ md: '120px' }} display={{ base: 'none', md: 'table-cell' }}>Priority</Th>
-                  <Th width={{ md: '120px' }} display={{ base: 'none', md: 'table-cell' }}>Status</Th>
-                  <Th width={{ md: '150px' }} textAlign="right">Actions</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
-                {filteredTasks.map((task) => (
-                  <Tr key={task.id}
-                    display={{ base: 'flex', md: 'table-row' }}
-                    flexDirection={{ base: 'column', md: 'inherit' }}
-                    p={{ base: 4, md: 0 }}
-                    gap={{ base: 3, md: 0 }}
-                    borderBottom="1px solid"
-                    borderColor={borderColor}
+          <Card bg={cardBg} borderRadius="xl" shadow="lg">
+            <CardBody textAlign="center" py={16}>
+              <VStack spacing={6}>
+                <Box
+                  p={6}
+                  borderRadius="full"
+                  bg={useColorModeValue('gray.100', 'gray.700')}
+                >
+                  <Icon as={FaTasks} boxSize={12} color={secondaryTextColor} />
+                </Box>
+                <VStack spacing={3}>
+                  <Heading size="lg" color={secondaryTextColor}>No tasks found</Heading>
+                  <Text color={secondaryTextColor} fontSize="md" maxW="md" textAlign="center">
+                    {tasks.length === 0
+                      ? 'Get started by creating your first task and begin organizing your workflow'
+                      : 'Try adjusting your filters to see more tasks or create a new one'}
+                  </Text>
+                </VStack>
+                {tasks.length === 0 && (
+                  <Button
+                    leftIcon={<Icon as={FaPlus} />}
+                    colorScheme="blue"
+                    size="lg"
+                    onClick={handleOpenNewTaskModal}
+                    borderRadius="xl"
+                    px={8}
                   >
-                    <Td width={{ base: '100%', md: '40px' }}
-                      px={{ base: 0, md: 4 }}
-                      py={{ base: 0, md: 4 }}
-                      display="flex"
-                      alignItems="center"
-                      border="none"
+                    Create Your First Task
+                  </Button>
+                )}
+              </VStack>
+            </CardBody>
+          </Card>
+        ) : (
+          <Card bg={cardBg} borderRadius="xl" shadow="lg" overflow="hidden">
+            <Box>
+              <Table variant="simple">
+                <Thead bg={useColorModeValue('gray.50', 'gray.700')} display={{ base: 'none', md: 'table-header-group' }}>
+                  <Tr>
+                    <Th width="60px" px={6} py={4} fontSize="sm" fontWeight="bold" color={useColorModeValue('gray.700', 'gray.300')}>
+                      <Icon as={FaCheckCircle} boxSize={4} />
+                    </Th>
+                    <Th px={6} py={4} fontSize="sm" fontWeight="bold" color={useColorModeValue('gray.700', 'gray.300')}>
+                      Task Details
+                    </Th>
+                    <Th width="140px" display={{ base: 'none', md: 'table-cell' }} px={6} py={4} fontSize="sm" fontWeight="bold" color={useColorModeValue('gray.700', 'gray.300')}>
+                      Priority
+                    </Th>
+                    <Th width="140px" display={{ base: 'none', md: 'table-cell' }} px={6} py={4} fontSize="sm" fontWeight="bold" color={useColorModeValue('gray.700', 'gray.300')}>
+                      Status
+                    </Th>
+                    <Th width="180px" textAlign="right" px={6} py={4} fontSize="sm" fontWeight="bold" color={useColorModeValue('gray.700', 'gray.300')}>
+                      Actions
+                    </Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {filteredTasks.map((task, index) => (
+                    <Tr key={task.id}
+                      display={{ base: 'flex', md: 'table-row' }}
+                      flexDirection={{ base: 'column', md: 'inherit' }}
+                      p={{ base: 6, md: 0 }}
+                      gap={{ base: 4, md: 0 }}
+                      borderBottom="1px solid"
+                      borderColor={borderColor}
+                      _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}
+                      transition="all 0.2s ease"
+                      bg={index % 2 === 0 ? useColorModeValue('white', 'gray.800') : useColorModeValue('gray.50', 'gray.750')}
                     >
-                      <Checkbox
-                        isChecked={task.status === 'COMPLETED'}
-                        onChange={(e) => handleStatusChange(task.id, e.target.checked ? 'COMPLETED' : 'TODO')}
-                        colorScheme="green"
-                      />
-                      <Box display={{ base: 'flex', md: 'none' }} ml={3}>
+                      <Td width={{ base: '100%', md: '60px' }}
+                        px={{ base: 0, md: 6 }}
+                        py={{ base: 0, md: 5 }}
+                        display="flex"
+                        alignItems="center"
+                        justifyContent={{ base: 'space-between', md: 'center' }}
+                        border="none"
+                      >
+                        <Checkbox
+                          isChecked={task.status === 'COMPLETED'}
+                          onChange={(e) => handleStatusChange(task.id, e.target.checked ? 'COMPLETED' : 'TODO')}
+                          colorScheme="green"
+                          size="lg"
+                        />
+                        <Box display={{ base: 'flex', md: 'none' }}>
+                          <ButtonGroup size="sm" spacing={1}>
+                            <IconButton
+                              aria-label="Edit task"
+                              icon={<Icon as={FaEdit} />}
+                              onClick={() => openEditTaskModal(task)}
+                              variant="ghost"
+                              colorScheme="blue"
+                              borderRadius="lg"
+                              _hover={{ bg: 'blue.50', transform: 'scale(1.05)' }}
+                              transition="all 0.2s ease"
+                            />
+                            <IconButton
+                              aria-label="Share task"
+                              icon={<Icon as={FaShare} />}
+                              onClick={() => openShareModal(task)}
+                              colorScheme="purple"
+                              variant="ghost"
+                              borderRadius="lg"
+                              _hover={{ bg: 'purple.50', transform: 'scale(1.05)' }}
+                              transition="all 0.2s ease"
+                            />
+                            <IconButton
+                              aria-label="Delete task"
+                              icon={<Icon as={FaTrash} />}
+                              onClick={() => handleDeleteTask(task.id)}
+                              colorScheme="red"
+                              variant="ghost"
+                              borderRadius="lg"
+                              _hover={{ bg: 'red.50', transform: 'scale(1.05)' }}
+                              transition="all 0.2s ease"
+                            />
+                          </ButtonGroup>
+                        </Box>
+                      </Td>
+                      <Td border="none" px={{ base: 0, md: 6 }} py={{ base: 0, md: 5 }}>
+                        <HStack spacing={3} align="start">
+                          <VStack spacing={1} align="center" mt={1}>
+                            <Tooltip label={`Priority: ${task.priority}`} placement="left">
+                              <Box
+                                w={3}
+                                h={3}
+                                borderRadius="full"
+                                bg={
+                                  task.priority === 'URGENT' ? 'red.500' :
+                                  task.priority === 'HIGH' ? 'orange.500' :
+                                  task.priority === 'MEDIUM' ? 'yellow.500' : 'green.500'
+                                }
+                                border="2px solid"
+                                borderColor={
+                                  task.priority === 'URGENT' ? 'red.200' :
+                                  task.priority === 'HIGH' ? 'orange.200' :
+                                  task.priority === 'MEDIUM' ? 'yellow.200' : 'green.200'
+                                }
+                                cursor="pointer"
+                                _hover={{ transform: 'scale(1.2)' }}
+                                transition="transform 0.2s ease"
+                              />
+                            </Tooltip>
+                            <Tooltip label={`Status: ${task.status.replace('_', ' ')}`} placement="left">
+                              <Box
+                                w={3}
+                                h={3}
+                                borderRadius="full"
+                                bg={
+                                  task.status === 'COMPLETED' ? 'green.500' :
+                                  task.status === 'IN_PROGRESS' ? 'blue.500' : 'gray.400'
+                                }
+                                border="2px solid"
+                                borderColor={
+                                  task.status === 'COMPLETED' ? 'green.200' :
+                                  task.status === 'IN_PROGRESS' ? 'blue.200' : 'gray.200'
+                                }
+                                cursor="pointer"
+                                _hover={{ transform: 'scale(1.2)' }}
+                                transition="transform 0.2s ease"
+                              />
+                            </Tooltip>
+                          </VStack>
+                          <VStack align="start" spacing={2} flex={1}>
+                            <Text
+                              fontWeight="semibold"
+                              fontSize="md"
+                              textDecoration={task.status === 'COMPLETED' ? 'line-through' : 'none'}
+                              color={task.status === 'COMPLETED' ? secondaryTextColor : useColorModeValue('gray.800', 'white')}
+                              noOfLines={1}
+                            >
+                              {task.title}
+                            </Text>
+                            {task.description && (
+                              <Text fontSize="sm" color={secondaryTextColor} noOfLines={2} lineHeight="1.4">
+                                {task.description}
+                              </Text>
+                            )}
+                            <HStack spacing={3} mt={2} display={{ base: 'flex', md: 'none' }}>
+                              <HStack spacing={1}>
+                                <Box
+                                  w={2}
+                                  h={2}
+                                  borderRadius="full"
+                                  bg={
+                                    task.priority === 'URGENT' ? 'red.500' :
+                                    task.priority === 'HIGH' ? 'orange.500' :
+                                    task.priority === 'MEDIUM' ? 'yellow.500' : 'green.500'
+                                  }
+                                />
+                                <Text fontSize="xs" color={secondaryTextColor} fontWeight="medium">
+                                  {task.priority}
+                                </Text>
+                              </HStack>
+                              <HStack spacing={1}>
+                                <Box
+                                  w={2}
+                                  h={2}
+                                  borderRadius="full"
+                                  bg={
+                                    task.status === 'COMPLETED' ? 'green.500' :
+                                    task.status === 'IN_PROGRESS' ? 'blue.500' : 'gray.400'
+                                  }
+                                />
+                                <Text fontSize="xs" color={secondaryTextColor} fontWeight="medium">
+                                  {task.status.replace('_', ' ')}
+                                </Text>
+                              </HStack>
+                            </HStack>
+                          </VStack>
+                        </HStack>
+                      </Td>
+                      <Td display={{ base: 'none', md: 'table-cell' }} border="none" px={6} py={5}>
+                        <HStack spacing={2} align="center">
+                          <Tooltip label={`Priority: ${task.priority}`} placement="top">
+                            <Box
+                              w={3}
+                              h={3}
+                              borderRadius="full"
+                              bg={
+                                task.priority === 'URGENT' ? 'red.500' :
+                                task.priority === 'HIGH' ? 'orange.500' :
+                                task.priority === 'MEDIUM' ? 'yellow.500' : 'green.500'
+                              }
+                              border="2px solid"
+                              borderColor={
+                                task.priority === 'URGENT' ? 'red.200' :
+                                task.priority === 'HIGH' ? 'orange.200' :
+                                task.priority === 'MEDIUM' ? 'yellow.200' : 'green.200'
+                              }
+                              cursor="pointer"
+                              _hover={{ transform: 'scale(1.2)' }}
+                              transition="transform 0.2s ease"
+                            />
+                          </Tooltip>
+                          <Text fontSize="sm" fontWeight="medium" color={useColorModeValue('gray.700', 'gray.300')}>
+                            {task.priority.toLowerCase()}
+                          </Text>
+                        </HStack>
+                      </Td>
+                      <Td display={{ base: 'none', md: 'table-cell' }} border="none" px={6} py={5}>
+                        <HStack spacing={2} align="center">
+                          <Tooltip label={`Status: ${task.status.replace('_', ' ')}`} placement="top">
+                            <Box
+                              w={3}
+                              h={3}
+                              borderRadius="full"
+                              bg={
+                                task.status === 'COMPLETED' ? 'green.500' :
+                                task.status === 'IN_PROGRESS' ? 'blue.500' : 'gray.400'
+                              }
+                              border="2px solid"
+                              borderColor={
+                                task.status === 'COMPLETED' ? 'green.200' :
+                                task.status === 'IN_PROGRESS' ? 'blue.200' : 'gray.200'
+                              }
+                              cursor="pointer"
+                              _hover={{ transform: 'scale(1.2)' }}
+                              transition="transform 0.2s ease"
+                            />
+                          </Tooltip>
+                          <Text fontSize="sm" fontWeight="medium" color={useColorModeValue('gray.700', 'gray.300')}>
+                            {task.status.replace('_', ' ').toLowerCase()}
+                          </Text>
+                        </HStack>
+                      </Td>
+                      <Td textAlign="right" display={{ base: 'none', md: 'table-cell' }} border="none" px={6} py={5}>
                         <ButtonGroup size="sm" spacing={2}>
                           <IconButton
                             aria-label="Edit task"
                             icon={<Icon as={FaEdit} />}
                             onClick={() => openEditTaskModal(task)}
                             variant="ghost"
+                            colorScheme="blue"
+                            borderRadius="lg"
+                            _hover={{ bg: 'blue.50', transform: 'scale(1.05)' }}
+                            transition="all 0.2s ease"
                           />
                           <IconButton
                             aria-label="Share task"
                             icon={<Icon as={FaShare} />}
                             onClick={() => openShareModal(task)}
-                            colorScheme="blue"
+                            colorScheme="purple"
                             variant="ghost"
+                            borderRadius="lg"
+                            _hover={{ bg: 'purple.50', transform: 'scale(1.05)' }}
+                            transition="all 0.2s ease"
                           />
                           <IconButton
                             aria-label="Delete task"
@@ -1054,85 +1582,18 @@ const TaskList: React.FC = () => {
                             onClick={() => handleDeleteTask(task.id)}
                             colorScheme="red"
                             variant="ghost"
+                            borderRadius="lg"
+                            _hover={{ bg: 'red.50', transform: 'scale(1.05)' }}
+                            transition="all 0.2s ease"
                           />
                         </ButtonGroup>
-                      </Box>
-                    </Td>
-                    <Td border="none" px={{ base: 0, md: 4 }} py={{ base: 0, md: 4 }}>
-                      <Text
-                        fontWeight="medium"
-                        textDecoration={task.status === 'COMPLETED' ? 'line-through' : 'none'}
-                        color={task.status === 'COMPLETED' ? secondaryTextColor : 'inherit'}
-                      >
-                        {task.title}
-                      </Text>
-                      {task.description && (
-                        <Text fontSize="sm" color={secondaryTextColor} noOfLines={2}>
-                          {task.description}
-                        </Text>
-                      )}
-                      <HStack spacing={2} mt={2} display={{ base: 'flex', md: 'none' }}>
-                        <Badge colorScheme={
-                          task.priority === 'URGENT' ? 'red' :
-                            task.priority === 'HIGH' ? 'orange' :
-                              task.priority === 'MEDIUM' ? 'yellow' : 'green'
-                        }>
-                          {task.priority}
-                        </Badge>
-                        <Badge colorScheme={
-                          task.status === 'COMPLETED' ? 'green' :
-                            task.status === 'IN_PROGRESS' ? 'blue' : 'gray'
-                        }>
-                          {task.status}
-                        </Badge>
-                      </HStack>
-                    </Td>
-                    <Td display={{ base: 'none', md: 'table-cell' }} border="none">
-                      <Badge colorScheme={
-                        task.priority === 'URGENT' ? 'red' :
-                          task.priority === 'HIGH' ? 'orange' :
-                            task.priority === 'MEDIUM' ? 'yellow' : 'green'
-                      }>
-                        {task.priority}
-                      </Badge>
-                    </Td>
-                    <Td display={{ base: 'none', md: 'table-cell' }} border="none">
-                      <Badge colorScheme={
-                        task.status === 'COMPLETED' ? 'green' :
-                          task.status === 'IN_PROGRESS' ? 'blue' : 'gray'
-                      }>
-                        {task.status}
-                      </Badge>
-                    </Td>
-                    <Td textAlign="right" display={{ base: 'none', md: 'table-cell' }} border="none">
-                      <ButtonGroup size="sm" spacing={2}>
-                        <IconButton
-                          aria-label="Edit task"
-                          icon={<Icon as={FaEdit} />}
-                          onClick={() => openEditTaskModal(task)}
-                          variant="ghost"
-                        />
-                        <IconButton
-                          aria-label="Share task"
-                          icon={<Icon as={FaShare} />}
-                          onClick={() => openShareModal(task)}
-                          colorScheme="blue"
-                          variant="ghost"
-                        />
-                        <IconButton
-                          aria-label="Delete task"
-                          icon={<Icon as={FaTrash} />}
-                          onClick={() => handleDeleteTask(task.id)}
-                          colorScheme="red"
-                          variant="ghost"
-                        />
-                      </ButtonGroup>
-                    </Td>
-                  </Tr>
-                ))}
-              </Tbody>
-            </Table>
-          </Box>
+                      </Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </Box>
+          </Card>
         )}
       </VStack>
 
