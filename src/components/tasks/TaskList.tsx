@@ -487,12 +487,16 @@ const TaskList: React.FC = () => {
     const originalTask = editingTask;
 
     try {
-      const updatedTaskData = {
+      const updatedTaskData: any = {
         ...taskData,
         status: taskData.status,
-        completedAt: taskData.status === 'COMPLETED' ? Timestamp.fromDate(new Date()) : undefined,
         updatedAt: Timestamp.fromDate(new Date())
       };
+
+      // Only add completedAt if status is COMPLETED
+      if (taskData.status === 'COMPLETED') {
+        updatedTaskData.completedAt = Timestamp.fromDate(new Date());
+      }
 
       // Optimistic update - update UI immediately
       const optimisticTasks = tasks.map(t => ({
@@ -536,23 +540,28 @@ const TaskList: React.FC = () => {
     if (!originalTask) return;
 
     try {
+      // Prepare update data
+      const updateData: any = {
+        status,
+        updatedAt: Timestamp.fromDate(new Date())
+      };
+
+      // Only add completedAt if status is COMPLETED
+      if (status === 'COMPLETED') {
+        updateData.completedAt = Timestamp.fromDate(new Date());
+      }
+
       // Optimistic update - update UI immediately
       const updatedTask = {
         ...originalTask,
-        status,
-        completedAt: status === 'COMPLETED' ? Timestamp.fromDate(new Date()) : undefined,
-        updatedAt: Timestamp.fromDate(new Date())
+        ...updateData
       };
 
       const optimisticTasks = tasks.map(t => t.id === taskId ? updatedTask : t);
       setTasks(optimisticTasks);
 
       // Persist to database
-      await updateTask(currentUser.uid, taskId, {
-        status,
-        completedAt: status === 'COMPLETED' ? Timestamp.fromDate(new Date()) : undefined,
-        updatedAt: Timestamp.fromDate(new Date())
-      });
+      await updateTask(currentUser.uid, taskId, updateData);
       
     } catch (err: any) {
       // Rollback on error - revert to original state

@@ -10,7 +10,8 @@ import {
   orderBy,
   onSnapshot,
   writeBatch,
-  limit
+  limit,
+  deleteDoc
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { 
@@ -132,8 +133,17 @@ export const updateTask = async (
     
     const batch = writeBatch(db);
     
+    // Filter out undefined values from updates
+    const filteredUpdates: any = {};
+    Object.keys(updates).forEach(key => {
+      const value = updates[key as keyof Task];
+      if (value !== undefined) {
+        filteredUpdates[key] = value;
+      }
+    });
+    
     const updateData = {
-      ...updates,
+      ...filteredUpdates,
       updatedAt: Timestamp.now(),
       lastModifiedBy: userId,
       version: (currentTask.version || 1) + 1
@@ -144,17 +154,25 @@ export const updateTask = async (
     // Add history entry for each changed field
     Object.keys(updates).forEach(field => {
       const historyRef = doc(collection(db, 'taskHistory'));
+      const oldValue = currentTask[field as keyof Task];
+      const newValue = updates[field as keyof Task];
+      
+      // Create details object and only include non-undefined values
+      const details: any = { field };
+      if (oldValue !== undefined) {
+        details.oldValue = oldValue;
+      }
+      if (newValue !== undefined) {
+        details.newValue = newValue;
+      }
+      
       batch.set(historyRef, {
         taskId,
         userId,
         userDisplayName: userDisplayName || 'Unknown User',
         action: 'updated',
         timestamp: Timestamp.now(),
-        details: {
-          field,
-          oldValue: currentTask[field as keyof Task],
-          newValue: updates[field as keyof Task]
-        }
+        details
       });
     });
     
@@ -519,14 +537,41 @@ export const subscribeToUserTasks = (
       callback(userTasks, sharedTasks);
     });
     
-    const unsubscribeSharedTasks = onSnapshot(sharedTasksQuery, (querySnapshot) => {
+    const unsubscribeSharedTasks = onSnapshot(sharedTasksQuery, async (querySnapshot) => {
       sharedTasks = [];
-      querySnapshot.forEach((doc) => {
-        sharedTasks.push({
-          id: doc.id,
-          ...doc.data()
-        } as SharedTask);
-      });
+      
+             // Process each shared task and fetch latest data
+       const sharedTaskPromises = querySnapshot.docs.map(async (docSnapshot) => {
+         const sharedTaskData = { id: docSnapshot.id, ...docSnapshot.data() } as SharedTask;
+         
+         try {
+           // Fetch the latest task data from the owner's collection
+           const originalTaskRef = doc(db, 'users', sharedTaskData.ownerId, 'tasks', sharedTaskData.originalTaskId);
+           const originalTaskSnap = await getDoc(originalTaskRef);
+           
+           if (originalTaskSnap.exists()) {
+             const latestTaskData = { id: originalTaskSnap.id, ...originalTaskSnap.data() } as Task;
+             
+             // Update the shared task with latest data
+             sharedTaskData.taskData = latestTaskData;
+             sharedTaskData.lastSyncedAt = Timestamp.now();
+             
+             return sharedTaskData;
+           } else {
+             // Original task was deleted, remove this shared task
+             console.warn(`Original task ${sharedTaskData.originalTaskId} not found, removing shared task`);
+             await deleteDoc(docSnapshot.ref);
+             return null;
+           }
+         } catch (error) {
+           console.error('Error fetching original task data:', error);
+           return sharedTaskData; // Return stale data rather than nothing
+         }
+       });
+      
+      // Wait for all shared tasks to be processed
+      const processedSharedTasks = await Promise.all(sharedTaskPromises);
+      sharedTasks = processedSharedTasks.filter(task => task !== null) as SharedTask[];
       
       callback(userTasks, sharedTasks);
     });

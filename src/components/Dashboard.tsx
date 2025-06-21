@@ -28,7 +28,15 @@ import {
   AvatarGroup,
   Tooltip,
   useToast,
-  useDisclosure
+  useDisclosure,
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  PopoverHeader,
+  PopoverBody,
+  PopoverCloseButton,
+  PopoverArrow,
+  Divider
 } from '@chakra-ui/react';
 import { 
   FaTasks, 
@@ -40,7 +48,8 @@ import {
   FaExclamationTriangle,
   FaCheckCircle,
   FaEye,
-  FaEdit
+  FaEdit,
+  FaCheck
 } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
 import { 
@@ -56,7 +65,8 @@ import {
 import { 
   subscribeToNotifications, 
   markNotificationAsRead,
-  updateUserPresence
+  updateUserPresence,
+  markAllNotificationsAsRead
 } from '../services/collaborationService';
 import TaskList from './tasks/TaskList';
 import TaskDetailModal from './tasks/TaskDetailModal';
@@ -77,6 +87,7 @@ const Dashboard: React.FC = () => {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(0);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   
   const { isOpen: isTaskDetailOpen, onOpen: onTaskDetailOpen, onClose: onTaskDetailClose } = useDisclosure();
   const toast = useToast();
@@ -94,10 +105,13 @@ const Dashboard: React.FC = () => {
 
     const setupSubscriptions = async () => {
       try {
+        console.log(`Setting up subscriptions for user: ${currentUser.uid}`);
+        
         // Subscribe to tasks (both owned and shared)
         unsubscribeTasks = subscribeToUserTasks(
           currentUser.uid,
           (userTasks, userSharedTasks) => {
+            console.log(`Received ${userTasks.length} user tasks and ${userSharedTasks.length} shared tasks`);
             setTasks(userTasks);
             setSharedTasks(userSharedTasks);
             setIsLoading(false);
@@ -108,6 +122,7 @@ const Dashboard: React.FC = () => {
         unsubscribeNotifications = subscribeToNotifications(
           currentUser.uid,
           (userNotifications) => {
+            console.log(`Received ${userNotifications.length} notifications`);
             setNotifications(userNotifications);
           }
         );
@@ -125,16 +140,24 @@ const Dashboard: React.FC = () => {
       } catch (error) {
         console.error('Error setting up subscriptions:', error);
         setIsLoading(false);
+        toast({
+          title: 'Connection Error',
+          description: 'Failed to connect to real-time updates. Please refresh the page.',
+          status: 'error',
+          duration: 5000,
+          isClosable: true
+        });
       }
     };
 
     setupSubscriptions();
 
     return () => {
+      console.log('Cleaning up subscriptions');
       unsubscribeTasks?.();
       unsubscribeNotifications?.();
     };
-  }, [currentUser, selectedTask]);
+  }, [currentUser, selectedTask, toast]);
 
   // Calculate task statistics
   const calculateStats = (): TaskStats => {
@@ -187,6 +210,9 @@ const Dashboard: React.FC = () => {
         setSelectedTask(task);
         onTaskDetailOpen();
       }
+      
+      // Close notification dropdown
+      setIsNotificationOpen(false);
     } catch (error) {
       toast({
         title: 'Error',
@@ -195,6 +221,68 @@ const Dashboard: React.FC = () => {
         duration: 3000,
         isClosable: true
       });
+    }
+  };
+
+  const handleMarkAllNotificationsRead = async () => {
+    try {
+      const markedCount = await markAllNotificationsAsRead(currentUser!.uid);
+      
+      if (markedCount > 0) {
+        toast({
+          title: 'Success',
+          description: `${markedCount} notifications marked as read`,
+          status: 'success',
+          duration: 2000,
+          isClosable: true
+        });
+      } else {
+        toast({
+          title: 'Info',
+          description: 'No unread notifications to mark',
+          status: 'info',
+          duration: 2000,
+          isClosable: true
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to mark notifications as read',
+        status: 'error',
+        duration: 3000,
+        isClosable: true
+      });
+    }
+  };
+
+  const getNotificationIcon = (type: TaskNotification['type']) => {
+    switch (type) {
+      case 'task_shared':
+        return FaShare;
+      case 'comment_added':
+        return FaComment;
+      case 'status_changed':
+        return FaCheckCircle;
+      case 'permission_changed':
+        return FaEdit;
+      default:
+        return FaBell;
+    }
+  };
+
+  const getNotificationColor = (type: TaskNotification['type']) => {
+    switch (type) {
+      case 'task_shared':
+        return 'purple.500';
+      case 'comment_added':
+        return 'blue.500';
+      case 'status_changed':
+        return 'green.500';
+      case 'permission_changed':
+        return 'orange.500';
+      default:
+        return 'gray.500';
     }
   };
 
@@ -251,27 +339,116 @@ const Dashboard: React.FC = () => {
             
             {/* Notifications */}
             <HStack spacing={4}>
-              <Box position="relative">
-                <IconButton
-                  aria-label="Notifications"
-                  icon={<FaBell />}
-                  variant="outline"
-                  colorScheme="blue"
-                />
-                {unreadNotifications.length > 0 && (
-                  <Badge
-                    position="absolute"
-                    top="-1"
-                    right="-1"
-                    colorScheme="red"
-                    borderRadius="full"
-                    px={2}
-                    fontSize="xs"
-                  >
-                    {unreadNotifications.length}
-                  </Badge>
-                )}
-              </Box>
+              <Popover isOpen={isNotificationOpen} onClose={() => setIsNotificationOpen(false)} placement="bottom-end">
+                <PopoverTrigger>
+                  <Box position="relative">
+                    <IconButton
+                      aria-label="Notifications"
+                      icon={<FaBell />}
+                      variant="outline"
+                      colorScheme="blue"
+                      onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+                    />
+                    {unreadNotifications.length > 0 && (
+                      <Badge
+                        position="absolute"
+                        top="-1"
+                        right="-1"
+                        colorScheme="red"
+                        borderRadius="full"
+                        px={2}
+                        fontSize="xs"
+                        minW="20px"
+                        h="20px"
+                        display="flex"
+                        alignItems="center"
+                        justifyContent="center"
+                      >
+                        {unreadNotifications.length > 99 ? '99+' : unreadNotifications.length}
+                      </Badge>
+                    )}
+                  </Box>
+                </PopoverTrigger>
+                <PopoverContent w="400px" maxH="500px">
+                  <PopoverArrow />
+                  <PopoverCloseButton />
+                  <PopoverHeader>
+                    <Flex justify="space-between" align="center">
+                      <Text fontWeight="semibold">Notifications ({unreadNotifications.length})</Text>
+                      {unreadNotifications.length > 0 && (
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          colorScheme="blue"
+                          onClick={handleMarkAllNotificationsRead}
+                          leftIcon={<FaCheck />}
+                        >
+                          Mark all read
+                        </Button>
+                      )}
+                    </Flex>
+                  </PopoverHeader>
+                  <PopoverBody p={0} overflowY="auto" maxH="400px">
+                    {notifications.length === 0 ? (
+                      <Center py={8}>
+                        <VStack spacing={2}>
+                          <FaBell size={24} color="gray" />
+                          <Text color="gray.500" fontSize="sm">No notifications yet</Text>
+                        </VStack>
+                      </Center>
+                    ) : (
+                      <VStack spacing={0} align="stretch">
+                        {notifications.slice(0, 10).map((notification, index) => {
+                          const IconComponent = getNotificationIcon(notification.type);
+                          const iconColor = getNotificationColor(notification.type);
+                          
+                          return (
+                            <Box key={notification.id}>
+                              <Box
+                                p={3}
+                                bg={notification.readAt ? "transparent" : "blue.50"}
+                                cursor="pointer"
+                                onClick={() => handleNotificationClick(notification)}
+                                _hover={{ bg: "gray.50" }}
+                                borderLeft={notification.readAt ? "none" : "3px solid"}
+                                borderLeftColor="blue.400"
+                              >
+                                <HStack spacing={3} align="start">
+                                  <Box as={IconComponent} color={iconColor} mt={1} flexShrink={0} />
+                                  <VStack align="start" spacing={1} flex={1} minW={0}>
+                                    <Text fontWeight={notification.readAt ? "normal" : "semibold"} fontSize="sm" noOfLines={2}>
+                                      {notification.title}
+                                    </Text>
+                                    <Text fontSize="xs" color="gray.600" noOfLines={2}>
+                                      {notification.message}
+                                    </Text>
+                                    <Text fontSize="xs" color="gray.500">
+                                      {notification.createdAt.toDate().toLocaleDateString()} at{' '}
+                                      {notification.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </Text>
+                                  </VStack>
+                                  {!notification.readAt && (
+                                    <Badge colorScheme="blue" size="sm" flexShrink={0}>New</Badge>
+                                  )}
+                                </HStack>
+                              </Box>
+                              {index < notifications.length - 1 && <Divider />}
+                            </Box>
+                          );
+                        })}
+                        
+                        {notifications.length > 10 && (
+                          <Box p={3} borderTop="1px solid" borderTopColor={borderColor}>
+                            <Text fontSize="sm" color="blue.500" textAlign="center" cursor="pointer">
+                              View all notifications
+                            </Text>
+                          </Box>
+                        )}
+                      </VStack>
+                    )}
+                  </PopoverBody>
+                </PopoverContent>
+              </Popover>
             </HStack>
           </Flex>
 
@@ -314,7 +491,11 @@ const Dashboard: React.FC = () => {
               {/* Shared with Me */}
               <TabPanel px={0}>
                 <VStack spacing={4} align="stretch">
-                  {sharedTasks.length === 0 ? (
+                  {isLoading ? (
+                    <Center py={8}>
+                      <Spinner size="lg" color="blue.500" />
+                    </Center>
+                  ) : sharedTasks.length === 0 ? (
                     <Card bg={cardBg}>
                       <CardBody>
                         <Center py={8}>
@@ -330,26 +511,47 @@ const Dashboard: React.FC = () => {
                     </Card>
                   ) : (
                     sharedTasks.map((sharedTask) => (
-                      <Card key={sharedTask.id} bg={cardBg} borderColor={borderColor}>
+                      <Card key={sharedTask.id} bg={cardBg} borderColor={borderColor} _hover={{ shadow: "md" }}>
                         <CardBody>
                           <Flex justify="space-between" align="center">
                             <VStack align="start" spacing={2}>
                               <HStack>
-                                <Text fontWeight="semibold">{sharedTask.taskData.title}</Text>
-                                <Badge colorScheme="purple" size="sm">
+                                <Text fontWeight="semibold" fontSize="lg">{sharedTask.taskData.title}</Text>
+                                <Badge colorScheme="purple" size="sm" textTransform="capitalize">
                                   {sharedTask.permissionLevel}
                                 </Badge>
+                                {sharedTask.taskData.dueDate && (
+                                  <Badge 
+                                    colorScheme={
+                                      sharedTask.taskData.dueDate.toDate() < new Date() ? "red" :
+                                      sharedTask.taskData.dueDate.toDate() < new Date(Date.now() + 24 * 60 * 60 * 1000) ? "yellow" : "green"
+                                    } 
+                                    size="sm"
+                                  >
+                                    Due {sharedTask.taskData.dueDate.toDate().toLocaleDateString()}
+                                  </Badge>
+                                )}
                               </HStack>
                               <Text fontSize="sm" color="gray.600">
-                                Shared by {sharedTask.ownerDisplayName}
+                                Shared by {sharedTask.ownerDisplayName} • {sharedTask.sharedAt.toDate().toLocaleDateString()}
                               </Text>
+                              {sharedTask.taskData.description && (
+                                <Text fontSize="sm" color="gray.700" noOfLines={2}>
+                                  {sharedTask.taskData.description}
+                                </Text>
+                              )}
                               <HStack>
                                 <Badge colorScheme="blue">
-                                  {sharedTask.taskData.status}
+                                  {sharedTask.taskData.status.replace('_', ' ')}
                                 </Badge>
                                 <Badge colorScheme="orange">
                                   {sharedTask.taskData.priority}
                                 </Badge>
+                                {sharedTask.taskData.collaborators && sharedTask.taskData.collaborators.length > 1 && (
+                                  <Badge colorScheme="green">
+                                    {sharedTask.taskData.collaborators.length} collaborators
+                                  </Badge>
+                                )}
                               </HStack>
                             </VStack>
                             
@@ -362,10 +564,11 @@ const Dashboard: React.FC = () => {
                                   setSelectedTask(sharedTask.taskData);
                                   onTaskDetailOpen();
                                 }}
+                                leftIcon={<FaEye />}
                               >
                                 View Details
                               </Button>
-                              {sharedTask.taskData.collaborators && (
+                              {sharedTask.taskData.collaborators && sharedTask.taskData.collaborators.length > 0 && (
                                 <AvatarGroup size="sm" max={3}>
                                   {sharedTask.taskData.collaborators.map((collaborator) => (
                                     <Tooltip key={collaborator.userId} label={collaborator.userDisplayName}>
@@ -390,7 +593,11 @@ const Dashboard: React.FC = () => {
               {/* Shared by Me */}
               <TabPanel px={0}>
                 <VStack spacing={4} align="stretch">
-                  {tasks.filter(t => t.isShared).length === 0 ? (
+                  {isLoading ? (
+                    <Center py={8}>
+                      <Spinner size="lg" color="blue.500" />
+                    </Center>
+                  ) : tasks.filter(t => t.isShared).length === 0 ? (
                     <Card bg={cardBg}>
                       <CardBody>
                         <Center py={8}>
@@ -406,17 +613,45 @@ const Dashboard: React.FC = () => {
                     </Card>
                   ) : (
                     tasks.filter(t => t.isShared).map((task) => (
-                      <Card key={task.id} bg={cardBg} borderColor={borderColor}>
+                      <Card key={task.id} bg={cardBg} borderColor={borderColor} _hover={{ shadow: "md" }}>
                         <CardBody>
                           <Flex justify="space-between" align="center">
                             <VStack align="start" spacing={2}>
-                              <Text fontWeight="semibold">{task.title}</Text>
-                              <Text fontSize="sm" color="gray.600">
-                                Shared with {task.sharing?.length || 0} collaborator(s)
-                              </Text>
                               <HStack>
-                                <Badge colorScheme="blue">{task.status}</Badge>
+                                <Text fontWeight="semibold" fontSize="lg">{task.title}</Text>
+                                <Badge colorScheme="green" size="sm">Owner</Badge>
+                                {task.dueDate && (
+                                  <Badge 
+                                    colorScheme={
+                                      task.dueDate.toDate() < new Date() ? "red" :
+                                      task.dueDate.toDate() < new Date(Date.now() + 24 * 60 * 60 * 1000) ? "yellow" : "green"
+                                    } 
+                                    size="sm"
+                                  >
+                                    Due {task.dueDate.toDate().toLocaleDateString()}
+                                  </Badge>
+                                )}
+                              </HStack>
+                              <Text fontSize="sm" color="gray.600">
+                                Shared with {task.sharing?.length || 0} collaborator(s) • 
+                                {task.collaborators && task.collaborators.length > 0 && (
+                                  <> {task.collaborators.length} active collaborators</>
+                                )}
+                              </Text>
+                              {task.description && (
+                                <Text fontSize="sm" color="gray.700" noOfLines={2}>
+                                  {task.description}
+                                </Text>
+                              )}
+                              <HStack>
+                                <Badge colorScheme="blue">{task.status.replace('_', ' ')}</Badge>
                                 <Badge colorScheme="orange">{task.priority}</Badge>
+                                <Badge colorScheme="purple">
+                                  <HStack spacing={1}>
+                                    <FaShare />
+                                    <Text>Shared</Text>
+                                  </HStack>
+                                </Badge>
                               </HStack>
                             </VStack>
                             
@@ -429,10 +664,11 @@ const Dashboard: React.FC = () => {
                                   setSelectedTask(task);
                                   onTaskDetailOpen();
                                 }}
+                                leftIcon={<FaEdit />}
                               >
                                 Manage
                               </Button>
-                              {task.collaborators && (
+                              {task.collaborators && task.collaborators.length > 0 && (
                                 <AvatarGroup size="sm" max={3}>
                                   {task.collaborators.map((collaborator) => (
                                     <Tooltip key={collaborator.userId} label={collaborator.userDisplayName}>

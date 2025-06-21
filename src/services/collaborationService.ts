@@ -12,7 +12,8 @@ import {
   deleteDoc,
   getDocs,
   getDoc,
-  limit
+  limit,
+  writeBatch
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { 
@@ -314,7 +315,7 @@ export const addCollaborators = async (
             notificationMetadata
           );
           
-          // Add to user's shared tasks collection
+          // Add to user's shared tasks collection with complete task data
           const sharedTaskRef = doc(db, 'users', userData.uid, 'sharedTasks', taskId);
           await setDoc(sharedTaskRef, {
             originalTaskId: taskId,
@@ -326,15 +327,23 @@ export const addCollaborators = async (
             taskData: {
               id: taskId,
               title: taskData.title,
-              description: taskData.description,
+              description: taskData.description || '',
               status: taskData.status,
               priority: taskData.priority,
               dueDate: taskData.dueDate,
               createdAt: taskData.createdAt,
-              updatedAt: taskData.updatedAt
+              updatedAt: taskData.updatedAt || Timestamp.now(),
+              userId: taskData.userId,
+              categoryId: taskData.categoryId,
+              collaborators: taskData.collaborators || [],
+              sharing: taskData.sharing || [],
+              isShared: true
             },
             lastSyncedAt: Timestamp.now()
           });
+        } else {
+          // Create notification for non-registered user (email notification)
+          console.log(`User ${user.email} not found in database, consider sending email notification`);
         }
       }
     }
@@ -451,7 +460,7 @@ export const subscribeToTaskPresence = (
   }
 };
 
-// Create notification
+// Enhanced notification creation with better error handling
 export const createNotification = async (
   recipientUserId: string,
   taskId: string,
@@ -461,6 +470,11 @@ export const createNotification = async (
   metadata?: TaskNotification['metadata']
 ) => {
   try {
+    // Validate inputs
+    if (!recipientUserId || !taskId || !type || !title || !message) {
+      throw new Error('Missing required notification parameters');
+    }
+
     // Filter out undefined values from metadata to prevent Firebase errors
     const cleanMetadata = metadata ? 
       Object.fromEntries(
@@ -477,10 +491,13 @@ export const createNotification = async (
       ...(cleanMetadata && Object.keys(cleanMetadata).length > 0 && { metadata: cleanMetadata })
     };
     
+    // Add to user's notifications collection
     const notificationRef = await addDoc(
       collection(db, 'users', recipientUserId, 'notifications'), 
       notificationData
     );
+    
+    console.log(`Notification created successfully: ${notificationRef.id} for user ${recipientUserId}`);
     
     return {
       id: notificationRef.id,
@@ -488,6 +505,36 @@ export const createNotification = async (
     };
   } catch (error) {
     console.error('Error creating notification:', error);
+    // Don't throw the error to prevent breaking the main sharing flow
+    return null;
+  }
+};
+
+// Bulk mark notifications as read
+export const markAllNotificationsAsRead = async (userId: string) => {
+  try {
+    const notificationsQuery = query(
+      collection(db, 'users', userId, 'notifications'),
+      where('readAt', '==', null)
+    );
+    
+    const notificationsSnap = await getDocs(notificationsQuery);
+    
+    if (notificationsSnap.empty) {
+      return 0;
+    }
+    
+    const batch = writeBatch(db);
+    const readTimestamp = Timestamp.now();
+    
+    notificationsSnap.docs.forEach(doc => {
+      batch.update(doc.ref, { readAt: readTimestamp });
+    });
+    
+    await batch.commit();
+    return notificationsSnap.size;
+  } catch (error) {
+    console.error('Error marking all notifications as read:', error);
     throw error;
   }
 };

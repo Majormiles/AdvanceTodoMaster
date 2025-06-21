@@ -15,7 +15,8 @@ import {
   FaHome,
   FaTasks,
   FaUser,
-  FaCog
+  FaCog,
+  FaShare
 } from 'react-icons/fa';
 
 interface SidebarProps {
@@ -30,21 +31,18 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
   const menuItems = [
     { name: 'Dashboard', icon: FaHome, path: '/dashboard' },
     { name: 'Tasks', icon: FaTasks, path: '/tasks' },
+    { name: 'Shared Tasks', icon: FaShare, path: '/shared-tasks' },
     { name: 'Profile', icon: FaUser, path: '/profile' },
     { name: 'Settings', icon: FaCog, path: '/settings' }
   ];
   
-  // If sidebar is closed, don't render content
-  if (!isOpen) {
-    return null;
-  }
-  
   return (
     <Box
       position="fixed"
-      left={0}
+      left={isOpen ? 0 : { base: '-100%', md: '-250px' }}
+      top="60px"
       h="calc(100vh - 60px)"
-      w={{ base: 'full', md: '250px' }}
+      w={{ base: '280px', md: '250px' }}
       bg={bgColor}
       borderRight="1px"
       borderRightColor={borderColor}
@@ -52,6 +50,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
       pb={10}
       overflowY="auto"
       zIndex={5}
+      transition="left 0.3s ease"
+      boxShadow={isOpen ? 'xl' : 'none'}
     >
       <VStack spacing={4}>
         <Text fontSize="xl" fontWeight="bold" mb={2}>
