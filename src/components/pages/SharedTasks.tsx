@@ -272,6 +272,7 @@ const SharedTasks: React.FC = () => {
                       _hover={{ shadow: "md", transform: "translateY(-2px)" }}
                       transition="all 0.2s"
                       cursor="pointer"
+                      onClick={() => handleTaskClick(sharedTask.taskData)}
                     >
                       <CardHeader pb={3}>
                         <Flex justify="space-between" align="center">
@@ -280,7 +281,6 @@ const SharedTasks: React.FC = () => {
                               fontWeight="semibold" 
                               fontSize="md" 
                               noOfLines={2}
-                              onClick={() => handleTaskClick(sharedTask.taskData)}
                             >
                               {sharedTask.taskData.title}
                             </Text>
@@ -307,6 +307,7 @@ const SharedTasks: React.FC = () => {
                               icon={<FaEllipsisV />}
                               variant="ghost"
                               size="sm"
+                              onClick={(e) => e.stopPropagation()}
                             />
                             <MenuList>
                               <MenuItem 
@@ -411,6 +412,7 @@ const SharedTasks: React.FC = () => {
                       _hover={{ shadow: "md", transform: "translateY(-2px)" }}
                       transition="all 0.2s"
                       cursor="pointer"
+                      onClick={() => handleTaskClick(task)}
                     >
                       <CardHeader pb={3}>
                         <Flex justify="space-between" align="center">
@@ -419,7 +421,6 @@ const SharedTasks: React.FC = () => {
                               fontWeight="semibold" 
                               fontSize="md" 
                               noOfLines={2}
-                              onClick={() => handleTaskClick(task)}
                             >
                               {task.title}
                             </Text>
@@ -445,6 +446,7 @@ const SharedTasks: React.FC = () => {
                               icon={<FaEllipsisV />}
                               variant="ghost"
                               size="sm"
+                              onClick={(e) => e.stopPropagation()}
                             />
                             <MenuList>
                               <MenuItem 
