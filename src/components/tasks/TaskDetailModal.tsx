@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   ModalOverlay,
@@ -28,7 +28,7 @@ import {
   Select,
   FormControl
 } from '@chakra-ui/react';
-import type { Task, TaskStatus, Category } from '../../types/task';
+import { Task, Category, TaskStatus, TaskComment } from '../../types/task';
 import { 
   FaCalendarAlt, 
   FaTag, 
@@ -40,6 +40,16 @@ import {
   FaPaperPlane
 } from 'react-icons/fa';
 import { format } from 'date-fns';
+import { addTaskComment, subscribeToTaskComments, getTaskPermissions } from '../../services/taskService';
+import { notifyCollaborators } from '../../services/collaborationService';
+import { useAuth } from '../../contexts/AuthContext';
+
+const STATUS_COLOR_MAP = {
+  'TODO': 'gray',
+  'IN_PROGRESS': 'blue',
+  'COMPLETED': 'green',
+  'CANCELLED': 'red'
+};
 
 const PRIORITY_COLOR_MAP = {
   'LOW': 'gray',
@@ -69,12 +79,35 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   onShare,
   onStatusChange
 }) => {
+  const { currentUser } = useAuth();
   const toast = useToast();
   const [comment, setComment] = useState('');
+  const [comments, setComments] = useState<TaskComment[]>([]);
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [isLoadingComments, setIsLoadingComments] = useState(true);
   
   // Background colors
   const borderColor = useColorModeValue('gray.200', 'gray.700');
+  const commentBg = useColorModeValue('gray.50', 'gray.700');
+  
+  // Set up real-time comment subscription when modal opens
+  useEffect(() => {
+    if (isOpen && task.id) {
+      setIsLoadingComments(true);
+      
+      const unsubscribe = subscribeToTaskComments(task.id, (taskComments) => {
+        setComments(taskComments);
+        setIsLoadingComments(false);
+      });
+
+      return () => {
+        unsubscribe();
+      };
+    } else {
+      setComments([]);
+      setIsLoadingComments(true);
+    }
+  }, [isOpen, task.id]);
   
   // Format dates
   const formattedDueDate = task.dueDate 
@@ -96,13 +129,40 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   
   // Handle comment submission
   const handleSubmitComment = async () => {
-    if (!comment.trim()) return;
+    if (!comment.trim() || !currentUser) return;
+    
+    // Check permissions for commenting
+    const permissions = getTaskPermissions(task, currentUser.uid);
+    if (!permissions.canComment) {
+      toast({
+        title: 'Permission Denied',
+        description: 'You do not have permission to comment on this task',
+        status: 'error',
+        duration: 3000,
+        isClosable: true
+      });
+      return;
+    }
     
     try {
       setIsSubmittingComment(true);
       
-      // This would typically call a function to add the comment to Firestore
-      // For this example, we'll just show a success toast
+      // Add comment to Firestore (always use the original task ID)
+      await addTaskComment(
+        task.id,
+        currentUser.uid,
+        currentUser.displayName || currentUser.email || 'Anonymous User',
+        comment.trim()
+      );
+      
+      // Notify all collaborators including the task owner about the new comment
+      await notifyCollaborators(
+        task,
+        'comment_added',
+        currentUser.uid,
+        currentUser.displayName || currentUser.email || 'Anonymous User',
+        { commentContent: comment.trim() }
+      );
       
       toast({
         title: 'Comment added',
@@ -113,9 +173,10 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       
       setComment('');
     } catch (error: any) {
+      console.error('Error adding comment:', error);
       toast({
         title: 'Error',
-        description: error.message,
+        description: error.message || 'Failed to add comment',
         status: 'error',
         duration: 5000,
         isClosable: true
@@ -250,37 +311,72 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               <Box>
                 <HStack>
                   <Box as={FaComments} />
-                  <Text fontWeight="semibold" fontSize="lg">Comments</Text>
+                  <Text fontWeight="semibold" fontSize="lg">
+                    Comments ({comments.length})
+                  </Text>
                 </HStack>
               </Box>
               
-              <VStack align="stretch" spacing={2}>
-                {/* This would be populated with actual comments from Firestore */}
-                <Text color="gray.500" fontSize="sm">
-                  No comments yet.
-                </Text>
+              <VStack align="stretch" spacing={3} maxH="300px" overflowY="auto">
+                {isLoadingComments ? (
+                  <Text color="gray.500" fontSize="sm">Loading comments...</Text>
+                ) : comments.length === 0 ? (
+                  <Text color="gray.500" fontSize="sm">No comments yet.</Text>
+                ) : (
+                  comments.map((comment) => (
+                    <Box 
+                      key={comment.id} 
+                      p={3} 
+                      bg={commentBg} 
+                      borderRadius="md"
+                      borderWidth="1px"
+                      borderColor={borderColor}
+                    >
+                      <VStack align="stretch" spacing={2}>
+                        <HStack justify="space-between">
+                          <Text fontWeight="semibold" fontSize="sm">
+                            {comment.userDisplayName}
+                          </Text>
+                          <Text fontSize="xs" color="gray.500">
+                            {format(comment.createdAt.toDate(), 'MMM d, yyyy h:mm a')}
+                          </Text>
+                        </HStack>
+                        <Text fontSize="sm">{comment.content}</Text>
+                      </VStack>
+                    </Box>
+                  ))
+                )}
               </VStack>
               
-              <Box>
-                <Textarea
-                  placeholder="Add a comment..."
-                  resize="vertical"
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                />
-                <Flex justifyContent="flex-end" mt={2}>
-                  <Button
-                    leftIcon={<FaPaperPlane />}
-                    colorScheme="blue"
-                    size="sm"
-                    isDisabled={!comment.trim()}
-                    onClick={handleSubmitComment}
-                    isLoading={isSubmittingComment}
-                  >
-                    Send
-                  </Button>
-                </Flex>
-              </Box>
+              {currentUser && getTaskPermissions(task, currentUser.uid).canComment ? (
+                <Box>
+                  <Textarea
+                    placeholder="Add a comment..."
+                    resize="vertical"
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    rows={3}
+                  />
+                  <Flex justifyContent="flex-end" mt={2}>
+                    <Button
+                      leftIcon={<FaPaperPlane />}
+                      colorScheme="blue"
+                      size="sm"
+                      isDisabled={!comment.trim()}
+                      onClick={handleSubmitComment}
+                      isLoading={isSubmittingComment}
+                    >
+                      Send
+                    </Button>
+                  </Flex>
+                </Box>
+              ) : (
+                <Box>
+                  <Text fontSize="sm" color="gray.500" fontStyle="italic">
+                    You do not have permission to comment on this task.
+                  </Text>
+                </Box>
+              )}
             </VStack>
           </VStack>
         </ModalBody>

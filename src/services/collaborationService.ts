@@ -598,9 +598,52 @@ export const notifyCollaborators = async (
     const collaborators = task.collaborators || [];
     const notifications = [];
     
+    // Create a set to track who we've already notified to avoid duplicates
+    const notifiedUserIds = new Set<string>();
+    
+    // Always notify the task owner (unless they made the change)
+    if (task.userId !== changedByUserId) {
+      let title = '';
+      let message = '';
+      
+      switch (changeType) {
+        case 'status_changed':
+          title = 'Task Status Updated';
+          message = `${changedByUserName} changed the status of "${task.title}" to ${details.newStatus}`;
+          break;
+        case 'comment_added':
+          title = 'New Comment';
+          message = `${changedByUserName} commented on "${task.title}"`;
+          break;
+        case 'task_assigned':
+          title = 'Task Assigned';
+          message = `${changedByUserName} assigned someone to "${task.title}"`;
+          break;
+      }
+      
+      const ownerNotification = createNotification(
+        task.userId,
+        task.id,
+        changeType,
+        title,
+        message,
+        {
+          fromUserId: changedByUserId,
+          fromUserDisplayName: changedByUserName,
+          ...details
+        }
+      );
+      
+      notifications.push(ownerNotification);
+      notifiedUserIds.add(task.userId);
+    }
+    
+    // Notify all collaborators (except the one who made the change and the owner if already notified)
     for (const collaborator of collaborators) {
-      // Don't notify the user who made the change
-      if (collaborator.userId === changedByUserId) continue;
+      // Don't notify the user who made the change or if already notified
+      if (collaborator.userId === changedByUserId || notifiedUserIds.has(collaborator.userId)) {
+        continue;
+      }
       
       let title = '';
       let message = '';
@@ -634,6 +677,7 @@ export const notifyCollaborators = async (
       );
       
       notifications.push(notification);
+      notifiedUserIds.add(collaborator.userId);
     }
     
     await Promise.all(notifications);

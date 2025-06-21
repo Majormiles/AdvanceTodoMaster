@@ -405,7 +405,7 @@ export const getSharedTasks = async (userId: string) => {
   }
 };
 
-// Add comment to task
+// Add comment to task (works for both regular and shared tasks)
 export const addTaskComment = async (
   taskId: string,
   userId: string,
@@ -415,15 +415,23 @@ export const addTaskComment = async (
   parentCommentId?: string
 ) => {
   try {
-    const commentData: Omit<TaskComment, 'id'> = {
+    // Build comment data, excluding undefined values
+    const commentData: any = {
       taskId,
       userId,
       userDisplayName,
       content,
-      createdAt: Timestamp.now(),
-      mentions,
-      parentCommentId
+      createdAt: Timestamp.now()
     };
+    
+    // Only add optional fields if they have values
+    if (mentions && mentions.length > 0) {
+      commentData.mentions = mentions;
+    }
+    
+    if (parentCommentId) {
+      commentData.parentCommentId = parentCommentId;
+    }
     
     const commentRef = await addDoc(collection(db, 'taskComments'), commentData);
     
@@ -444,7 +452,7 @@ export const addTaskComment = async (
     return {
       id: commentRef.id,
       ...commentData
-    };
+    } as TaskComment;
   } catch (error) {
     console.error('Error adding comment:', error);
     throw error;
@@ -456,8 +464,8 @@ export const getTaskComments = async (taskId: string) => {
   try {
     const commentsQuery = query(
       collection(db, 'taskComments'),
-      where('taskId', '==', taskId),
-      orderBy('createdAt', 'asc')
+      where('taskId', '==', taskId)
+      // Removed orderBy to avoid requiring composite index
     );
     
     const commentsSnap = await getDocs(commentsQuery);
@@ -470,9 +478,50 @@ export const getTaskComments = async (taskId: string) => {
       } as TaskComment);
     });
     
+    // Sort comments by createdAt on the client side
+    comments.sort((a, b) => a.createdAt.toMillis() - b.createdAt.toMillis());
+    
     return comments;
   } catch (error) {
     console.error('Error getting comments:', error);
+    throw error;
+  }
+};
+
+// Subscribe to real-time task comments
+export const subscribeToTaskComments = (
+  taskId: string,
+  callback: (comments: TaskComment[]) => void
+) => {
+  try {
+    const commentsQuery = query(
+      collection(db, 'taskComments'),
+      where('taskId', '==', taskId)
+      // Removed orderBy to avoid requiring composite index
+      // We'll sort on the client side instead
+    );
+    
+    const unsubscribe = onSnapshot(commentsQuery, (querySnapshot) => {
+      const comments: TaskComment[] = [];
+      
+      querySnapshot.forEach((doc) => {
+        comments.push({
+          id: doc.id,
+          ...doc.data()
+        } as TaskComment);
+      });
+      
+      // Sort comments by createdAt on the client side
+      comments.sort((a, b) => a.createdAt.toMillis() - b.createdAt.toMillis());
+      
+      callback(comments);
+    }, (error) => {
+      console.error('Error listening to comments:', error);
+    });
+    
+    return unsubscribe;
+  } catch (error) {
+    console.error('Error setting up comment subscription:', error);
     throw error;
   }
 };
