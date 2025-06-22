@@ -142,8 +142,6 @@ const TaskChart: React.FC<{ tasks: Task[], categories: Category[] }> = ({ tasks,
             backgroundColor: orderedColors,
             borderColor: orderedBorderColors,
             borderWidth: 2,
-            hoverBackgroundColor: orderedColors.map(color => color.replace('0.8', '0.9')),
-            hoverBorderWidth: 3,
           }],
         };
       }
@@ -179,8 +177,6 @@ const TaskChart: React.FC<{ tasks: Task[], categories: Category[] }> = ({ tasks,
             backgroundColor: orderedColors,
             borderColor: orderedBorderColors,
             borderWidth: 2,
-            hoverBackgroundColor: orderedColors.map(color => color.replace('0.8', '0.9')),
-            hoverBorderWidth: 3,
           }],
         };
       }
@@ -206,7 +202,6 @@ const TaskChart: React.FC<{ tasks: Task[], categories: Category[] }> = ({ tasks,
         const data = Object.values(categoryCounts);
         const backgroundColor = colors.slice(0, labels.length);
         const borderColor = backgroundColor.map(color => color.replace('0.8', '1'));
-        const hoverBackgroundColor = backgroundColor.map(color => color.replace('0.8', '0.9'));
 
         return {
           labels,
@@ -215,8 +210,6 @@ const TaskChart: React.FC<{ tasks: Task[], categories: Category[] }> = ({ tasks,
             backgroundColor,
             borderColor,
             borderWidth: 2,
-            hoverBackgroundColor,
-            hoverBorderWidth: 3,
           }],
         };
       }
@@ -263,7 +256,7 @@ const TaskChart: React.FC<{ tasks: Task[], categories: Category[] }> = ({ tasks,
         cornerRadius: 16,
         displayColors: true,
         padding: 16,
-        titleFont: { size: 14, weight: 'bold' },
+        titleFont: { size: 14, weight: 'bold' as const },
         bodyFont: { size: 13 },
         callbacks: {
           label: function (context: TooltipItem<"pie">) {
@@ -301,32 +294,32 @@ const TaskChart: React.FC<{ tasks: Task[], categories: Category[] }> = ({ tasks,
 
   return (
     <Card 
-      mb={6} 
+      mb={4} 
       bg={cardBg} 
       borderColor={borderColor}
-      shadow="xl"
-      borderRadius="2xl"
+      shadow="md"
+      borderRadius="lg"
       overflow="hidden"
       transform={isVisible ? "translateY(0)" : "translateY(20px)"}
       opacity={isVisible ? 1 : 0}
       transition="all 0.6s ease-out"
     >
       <Box bgGradient={gradientBg} p={1}>
-        <Box bg={cardBg} borderRadius="xl">
-          <CardHeader pb={4}>
-            <Flex justify="space-between" align="center" flexWrap="wrap" gap={4}>
+        <Box bg={cardBg} borderRadius="lg">
+          <CardHeader pb={2}>
+            <Flex justify="space-between" align="center" flexWrap="wrap" gap={3}>
               <VStack align="start" spacing={1}>
                 <HStack>
                   <Box 
-                    w={4} 
-                    h={4} 
+                    w={3} 
+                    h={3} 
                     bg="linear-gradient(45deg, #667eea 0%, #764ba2 100%)" 
                     borderRadius="md"
                     transform={isVisible ? "rotate(0deg)" : "rotate(-180deg)"}
                     transition="transform 0.8s ease-out"
                   />
                   <Heading 
-                    size="lg" 
+                    size="md" 
                     bgGradient="linear(to-r, blue.600, purple.600)" 
                     bgClip="text"
                     fontWeight="bold"
@@ -334,7 +327,7 @@ const TaskChart: React.FC<{ tasks: Task[], categories: Category[] }> = ({ tasks,
                     Task Analytics
                   </Heading>
                 </HStack>
-                <Text fontSize="sm" color="gray.600">
+                <Text fontSize="xs" color="gray.600">
                   Visual insights into your task distribution
                 </Text>
               </VStack>
@@ -380,13 +373,13 @@ const TaskChart: React.FC<{ tasks: Task[], categories: Category[] }> = ({ tasks,
             </Flex>
           </CardHeader>
           
-          <CardBody pt={0} px={4}>
+          <CardBody pt={0} px={3}>
             {tasks.length > 0 ? (
               <Grid 
-                templateColumns={{ base: "1fr", lg: "400px 1fr" }} 
-                gap={{ base: 6, lg: 4 }} 
+                templateColumns={{ base: "1fr", lg: "280px 1fr" }} 
+                gap={{ base: 4, lg: 3 }} 
                 alignItems="start"
-                minH={{ base: "auto", lg: "400px" }}
+                minH={{ base: "auto", lg: "280px" }}
               >
                 {/* Chart Section */}
                 <Box 
@@ -399,32 +392,32 @@ const TaskChart: React.FC<{ tasks: Task[], categories: Category[] }> = ({ tasks,
                   justifyContent="center"
                 >
                   <Box 
-                    width={{ base: "300px", lg: "350px" }}
-                    height={{ base: "300px", lg: "350px" }}
+                    width={{ base: "220px", lg: "260px" }}
+                    height={{ base: "220px", lg: "260px" }}
                     position="relative"
-                    borderRadius="xl"
+                    borderRadius="lg"
                     bg={useColorModeValue('gray.50', 'gray.750')}
-                    p={3}
-                    _hover={{ shadow: "lg" }}
+                    p={2}
+                    _hover={{ shadow: "md" }}
                     transition="box-shadow 0.3s ease"
                     display="flex"
                     alignItems="center"
                     justifyContent="center"
                     mx="auto"
                   >
-                    <Box width={{ base: "250px", lg: "300px" }} height={{ base: "250px", lg: "300px" }}>
+                    <Box width={{ base: "200px", lg: "240px" }} height={{ base: "200px", lg: "240px" }}>
                       <Pie data={getChartData()} options={chartOptions} />
                     </Box>
                   </Box>
                 </Box>
 
                 {/* Stats Cards */}
-                <VStack spacing={3} align="stretch" pl={{ base: 0, lg: 2 }}>
+                <VStack spacing={2} align="stretch" pl={{ base: 0, lg: 2 }}>
                   <Text 
                     fontWeight="bold" 
-                    fontSize="lg" 
+                    fontSize="sm" 
                     color="gray.700"
-                    mb={3}
+                    mb={1}
                     textAlign="left"
                   >
                     Distribution
@@ -432,14 +425,14 @@ const TaskChart: React.FC<{ tasks: Task[], categories: Category[] }> = ({ tasks,
                   {getStatsCards().map((stat, index) => (
                     <Box
                       key={stat.label}
-                      p={3}
-                      borderRadius="lg"
+                      p={2}
+                      borderRadius="md"
                       bg={useColorModeValue('white', 'gray.700')}
                       border="1px solid"
                       borderColor={useColorModeValue('gray.200', 'gray.600')}
                       _hover={{ 
-                        transform: "translateY(-2px)", 
-                        shadow: "lg",
+                        transform: "translateY(-1px)", 
+                        shadow: "md",
                         borderColor: stat.color.replace('0.8', '1')
                       }}
                       transition="all 0.3s ease"
@@ -451,19 +444,19 @@ const TaskChart: React.FC<{ tasks: Task[], categories: Category[] }> = ({ tasks,
                       }}
                     >
                       <Flex align="center" justify="space-between">
-                        <HStack spacing={3}>
+                        <HStack spacing={2}>
                           <Box
-                            w={3}
-                            h={3}
+                            w={2}
+                            h={2}
                             borderRadius="full"
                             bg={stat.color}
                             boxShadow="sm"
                           />
                           <VStack align="start" spacing={0}>
-                            <Text fontWeight="semibold" fontSize="sm">
+                            <Text fontWeight="semibold" fontSize="xs">
                               {stat.label}
                             </Text>
-                            <Text fontSize="xs" color="gray.500">
+                            <Text fontSize="2xs" color="gray.500">
                               {stat.percentage}% of total
                             </Text>
                           </VStack>
@@ -471,12 +464,12 @@ const TaskChart: React.FC<{ tasks: Task[], categories: Category[] }> = ({ tasks,
                         <VStack align="end" spacing={0}>
                           <Text 
                             fontWeight="bold" 
-                            fontSize="md"
+                            fontSize="sm"
                             color={stat.color.replace('0.8', '1').replace('rgba', '').replace(')', '').split(',').slice(0,3).join(',').replace('(', 'rgb(')}
                           >
                             {stat.value}
                           </Text>
-                          <Text fontSize="xs" color="gray.500">
+                          <Text fontSize="2xs" color="gray.500">
                             task{stat.value !== 1 ? 's' : ''}
                           </Text>
                         </VStack>
@@ -486,27 +479,27 @@ const TaskChart: React.FC<{ tasks: Task[], categories: Category[] }> = ({ tasks,
                   
                   {/* Summary Card */}
                   <Box
-                    mt={3}
-                    p={4}
-                    borderRadius="lg"
+                    mt={2}
+                    p={3}
+                    borderRadius="md"
                     bgGradient="linear(to-r, blue.500, purple.600)"
                     color="white"
-                    _hover={{ transform: "translateY(-2px)", shadow: "xl" }}
+                    _hover={{ transform: "translateY(-1px)", shadow: "md" }}
                     transition="all 0.3s ease"
                     transform={isVisible ? "scale(1)" : "scale(0.95)"}
                     style={{
                       transitionDelay: `${0.4 + getStatsCards().length * 0.1 + 0.2}s`
                     }}
                   >
-                    <VStack spacing={2}>
+                    <VStack spacing={1}>
                       <HStack>
-                        <Box as={FaTasks} />
-                        <Text fontWeight="bold" fontSize="sm">Total Tasks</Text>
+                        <Box as={FaTasks} boxSize={3} />
+                        <Text fontWeight="bold" fontSize="xs">Total Tasks</Text>
                       </HStack>
-                      <Text fontSize="xl" fontWeight="bold">
+                      <Text fontSize="lg" fontWeight="bold">
                         {tasks.length}
                       </Text>
-                      <Text fontSize="xs" opacity={0.9}>
+                      <Text fontSize="2xs" opacity={0.9}>
                         {tasks.filter(t => t.status === 'COMPLETED').length} completed
                       </Text>
                     </VStack>
@@ -917,58 +910,57 @@ const TaskList: React.FC = () => {
         </Card>
 
         {/* Statistics Dashboard and Analytics - Responsive Grid */}
-        <Grid templateColumns={{ base: "1fr", lg: "2fr 1fr" }} gap={6}>
+        <Grid templateColumns={{ base: "1fr", lg: "3fr 2fr" }} gap={4}>
           {/* Left side - Statistics Cards */}
-          <Grid templateColumns={{ base: "repeat(2, 1fr)", lg: "repeat(2, 1fr)" }} gap={{ base: 3, md: 6 }}>
+          <Grid templateColumns={{ base: "repeat(2, 1fr)", lg: "repeat(4, 1fr)" }} gap={{ base: 2, md: 3 }}>
             <Card 
-              size={{ base: "sm", md: "md" }} 
+              size="sm"
               bg={cardBg}
               onClick={() => setSelectedCardType('total')}
               cursor="pointer"
               transition="all 0.3s ease"
               _hover={{ 
-                transform: 'translateY(-4px) scale(1.02)', 
-                shadow: 'xl',
+                transform: 'translateY(-2px)', 
+                shadow: 'md',
                 borderColor: 'blue.400'
               }}
               role="button"
               aria-label="View all tasks"
-              borderRadius="xl"
-              borderWidth="2px"
+              borderRadius="lg"
+              borderWidth="1px"
               borderColor="transparent"
               position="relative"
               overflow="hidden"
+              height="120px"
             >
               <Box
                 position="absolute"
                 top="0"
                 left="0"
                 right="0"
-                height="4px"
+                height="3px"
                 bgGradient="linear(to-r, blue.400, blue.600)"
               />
-              <CardBody textAlign="center" py={{ base: 4, md: 6 }} px={{ base: 3, md: 6 }}>
-                <VStack spacing={{ base: 2, md: 3 }}>
+              <CardBody textAlign="center" py={3} px={3} display="flex" alignItems="center" justifyContent="center" height="100%">
+                <VStack spacing={2}>
                   <Box
-                    p={3}
+                    p={2}
                     borderRadius="full"
                     bg={useColorModeValue('blue.50', 'blue.900')}
-                    transition="all 0.3s ease"
-                    _groupHover={{ transform: 'rotate(10deg) scale(1.1)' }}
                   >
-                    <Icon as={FaTasks} boxSize={{ base: 6, md: 8 }} color="blue.500" />
+                    <Icon as={FaTasks} boxSize={5} color="blue.500" />
                   </Box>
-                  <Stat>
+                  <Stat textAlign="center">
                     <StatNumber 
-                      fontSize={{ base: "xl", md: "3xl" }} 
+                      fontSize="xl" 
                       fontWeight="bold"
                       color="blue.600"
-                      mb={1}
+                      mb={0}
                     >
                       {taskStats.total}
                     </StatNumber>
                     <StatLabel 
-                      fontSize={{ base: "sm", md: "md" }}
+                      fontSize="xs"
                       color={useColorModeValue('gray.600', 'gray.400')}
                       fontWeight="medium"
                     >
@@ -980,54 +972,53 @@ const TaskList: React.FC = () => {
             </Card>
 
             <Card 
-              size={{ base: "sm", md: "md" }} 
+              size="sm"
               bg={cardBg}
               onClick={() => setSelectedCardType('inProgress')}
               cursor="pointer"
               transition="all 0.3s ease"
               _hover={{ 
-                transform: 'translateY(-4px) scale(1.02)', 
-                shadow: 'xl',
+                transform: 'translateY(-2px)', 
+                shadow: 'md',
                 borderColor: 'orange.400'
               }}
               role="button"
               aria-label="View in-progress tasks"
-              borderRadius="xl"
-              borderWidth="2px"
+              borderRadius="lg"
+              borderWidth="1px"
               borderColor="transparent"
               position="relative"
               overflow="hidden"
+              height="120px"
             >
               <Box
                 position="absolute"
                 top="0"
                 left="0"
                 right="0"
-                height="4px"
+                height="3px"
                 bgGradient="linear(to-r, orange.400, orange.600)"
               />
-              <CardBody textAlign="center" py={{ base: 4, md: 6 }} px={{ base: 3, md: 6 }}>
-                <VStack spacing={{ base: 2, md: 3 }}>
+              <CardBody textAlign="center" py={3} px={3} display="flex" alignItems="center" justifyContent="center" height="100%">
+                <VStack spacing={2}>
                   <Box
-                    p={3}
+                    p={2}
                     borderRadius="full"
                     bg={useColorModeValue('orange.50', 'orange.900')}
-                    transition="all 0.3s ease"
-                    _groupHover={{ transform: 'rotate(10deg) scale(1.1)' }}
                   >
-                    <Icon as={FaClock} boxSize={{ base: 6, md: 8 }} color="orange.500" />
+                    <Icon as={FaClock} boxSize={5} color="orange.500" />
                   </Box>
-                  <Stat>
+                  <Stat textAlign="center">
                     <StatNumber 
-                      fontSize={{ base: "xl", md: "3xl" }} 
+                      fontSize="xl" 
                       fontWeight="bold"
                       color="orange.600"
-                      mb={1}
+                      mb={0}
                     >
                       {taskStats.inProgress}
                     </StatNumber>
                     <StatLabel 
-                      fontSize={{ base: "sm", md: "md" }}
+                      fontSize="xs"
                       color={useColorModeValue('gray.600', 'gray.400')}
                       fontWeight="medium"
                     >
@@ -1039,54 +1030,53 @@ const TaskList: React.FC = () => {
             </Card>
 
             <Card 
-              size={{ base: "sm", md: "md" }} 
+              size="sm"
               bg={cardBg}
               onClick={() => setSelectedCardType('completed')}
               cursor="pointer"
               transition="all 0.3s ease"
               _hover={{ 
-                transform: 'translateY(-4px) scale(1.02)', 
-                shadow: 'xl',
+                transform: 'translateY(-2px)', 
+                shadow: 'md',
                 borderColor: 'green.400'
               }}
               role="button"
               aria-label="View completed tasks"
-              borderRadius="xl"
-              borderWidth="2px"
+              borderRadius="lg"
+              borderWidth="1px"
               borderColor="transparent"
               position="relative"
               overflow="hidden"
+              height="120px"
             >
               <Box
                 position="absolute"
                 top="0"
                 left="0"
                 right="0"
-                height="4px"
+                height="3px"
                 bgGradient="linear(to-r, green.400, green.600)"
               />
-              <CardBody textAlign="center" py={{ base: 4, md: 6 }} px={{ base: 3, md: 6 }}>
-                <VStack spacing={{ base: 2, md: 3 }}>
+              <CardBody textAlign="center" py={3} px={3} display="flex" alignItems="center" justifyContent="center" height="100%">
+                <VStack spacing={2}>
                   <Box
-                    p={3}
+                    p={2}
                     borderRadius="full"
                     bg={useColorModeValue('green.50', 'green.900')}
-                    transition="all 0.3s ease"
-                    _groupHover={{ transform: 'rotate(10deg) scale(1.1)' }}
                   >
-                    <Icon as={FaCheckCircle} boxSize={{ base: 6, md: 8 }} color="green.500" />
+                    <Icon as={FaCheckCircle} boxSize={5} color="green.500" />
                   </Box>
-                  <Stat>
+                  <Stat textAlign="center">
                     <StatNumber 
-                      fontSize={{ base: "xl", md: "3xl" }} 
+                      fontSize="xl" 
                       fontWeight="bold"
                       color="green.600"
-                      mb={1}
+                      mb={0}
                     >
                       {completionRate}%
                     </StatNumber>
                     <StatLabel 
-                      fontSize={{ base: "sm", md: "md" }}
+                      fontSize="xs"
                       color={useColorModeValue('gray.600', 'gray.400')}
                       fontWeight="medium"
                     >
@@ -1098,54 +1088,53 @@ const TaskList: React.FC = () => {
             </Card>
 
             <Card 
-              size={{ base: "sm", md: "md" }} 
+              size="sm"
               bg={cardBg}
               onClick={() => setSelectedCardType('urgent')}
               cursor="pointer"
               transition="all 0.3s ease"
               _hover={{ 
-                transform: 'translateY(-4px) scale(1.02)', 
-                shadow: 'xl',
+                transform: 'translateY(-2px)', 
+                shadow: 'md',
                 borderColor: 'red.400'
               }}
               role="button"
               aria-label="View urgent tasks"
-              borderRadius="xl"
-              borderWidth="2px"
+              borderRadius="lg"
+              borderWidth="1px"
               borderColor="transparent"
               position="relative"
               overflow="hidden"
+              height="120px"
             >
               <Box
                 position="absolute"
                 top="0"
                 left="0"
                 right="0"
-                height="4px"
+                height="3px"
                 bgGradient="linear(to-r, red.400, red.600)"
               />
-              <CardBody textAlign="center" py={{ base: 4, md: 6 }} px={{ base: 3, md: 6 }}>
-                <VStack spacing={{ base: 2, md: 3 }}>
+              <CardBody textAlign="center" py={3} px={3} display="flex" alignItems="center" justifyContent="center" height="100%">
+                <VStack spacing={2}>
                   <Box
-                    p={3}
+                    p={2}
                     borderRadius="full"
                     bg={useColorModeValue('red.50', 'red.900')}
-                    transition="all 0.3s ease"
-                    _groupHover={{ transform: 'rotate(10deg) scale(1.1)' }}
                   >
-                    <Icon as={FaExclamationTriangle} boxSize={{ base: 6, md: 8 }} color="red.500" />
+                    <Icon as={FaExclamationTriangle} boxSize={5} color="red.500" />
                   </Box>
-                  <Stat>
+                  <Stat textAlign="center">
                     <StatNumber 
-                      fontSize={{ base: "xl", md: "3xl" }} 
+                      fontSize="xl" 
                       fontWeight="bold"
                       color="red.600"
-                      mb={1}
+                      mb={0}
                     >
                       {taskStats.urgent}
                     </StatNumber>
                     <StatLabel 
-                      fontSize={{ base: "sm", md: "md" }}
+                      fontSize="xs"
                       color={useColorModeValue('gray.600', 'gray.400')}
                       fontWeight="medium"
                     >
